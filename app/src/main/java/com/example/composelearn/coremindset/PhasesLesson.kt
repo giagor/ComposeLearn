@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
  * 用三个最小实验区分“有没有 UI”、“多大放哪”和“长什么样”。
  */
 @Composable
-internal fun ComposePhasesLesson() {
+internal fun PhasesLesson() {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         CoreMindsetLessonCard(
             title = "先记住三个阶段",

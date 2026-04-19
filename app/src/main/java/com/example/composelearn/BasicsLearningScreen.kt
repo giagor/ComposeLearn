@@ -57,7 +57,7 @@ import androidx.compose.ui.unit.dp
  * 基础入门：常用组件、布局、列表、滚动、Modifier 常见用法
  * */
 @Composable
-fun ComposeBasicsLearningScreen(
+fun BasicsLearningScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val sections = listOf(

@@ -19,8 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.composelearn.coremindset.ComposeCoreMindsetLearningScreen
-import com.example.composelearn.statebasics.ComposeStateBasicsLearningScreen
+import com.example.composelearn.coremindset.CoreMindsetLearningScreen
+import com.example.composelearn.statebasics.StateBasicsLearningScreen
 
 private enum class LearningSection(val label: String) {
     Basics("基础入门"),
@@ -30,7 +30,7 @@ private enum class LearningSection(val label: String) {
 }
 
 @Composable
-fun ComposeLearningHomeScreen(
+fun LearningHomeScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     var currentSection by remember { mutableStateOf(LearningSection.StateBasics) }
@@ -46,10 +46,10 @@ fun ComposeLearningHomeScreen(
         )
 
         when (currentSection) {
-            LearningSection.Basics -> ComposeBasicsLearningScreen()
-            LearningSection.Practice -> ComposePracticeLearningScreen()
-            LearningSection.CoreMindset -> ComposeCoreMindsetLearningScreen()
-            LearningSection.StateBasics -> ComposeStateBasicsLearningScreen()
+            LearningSection.Basics -> BasicsLearningScreen()
+            LearningSection.Practice -> PracticeLearningScreen()
+            LearningSection.CoreMindset -> CoreMindsetLearningScreen()
+            LearningSection.StateBasics -> StateBasicsLearningScreen()
         }
     }
 }

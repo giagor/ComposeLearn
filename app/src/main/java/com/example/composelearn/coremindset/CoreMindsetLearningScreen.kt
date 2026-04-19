@@ -41,7 +41,7 @@ private enum class CoreMindsetLesson(val label: String) {
 }
 
 @Composable
-fun ComposeCoreMindsetLearningScreen() {
+fun CoreMindsetLearningScreen() {
     var currentLesson by remember { mutableStateOf(CoreMindsetLesson.DeclarativeAndRecompose) }
 
     LazyColumn(
@@ -59,7 +59,7 @@ fun ComposeCoreMindsetLearningScreen() {
         item {
             when (currentLesson) {
                 CoreMindsetLesson.DeclarativeAndRecompose -> DeclarativeAndRecomposeLesson()
-                CoreMindsetLesson.Phases -> ComposePhasesLesson()
+                CoreMindsetLesson.Phases -> PhasesLesson()
                 CoreMindsetLesson.ModifierOrder -> ModifierOrderLesson()
             }
         }

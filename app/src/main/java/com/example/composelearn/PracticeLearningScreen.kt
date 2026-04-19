@@ -56,7 +56,7 @@ private enum class PracticeCase(val label: String) {
 }
 
 @Composable
-fun ComposePracticeLearningScreen() {
+fun PracticeLearningScreen() {
     var currentCase by remember { mutableStateOf(PracticeCase.Login) }
 
     LazyColumn(

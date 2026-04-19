@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
  */
 private const val TAG = "StateBasicsLearningScreen"
 @Composable
-fun ComposeStateBasicsLearningScreen() {
+fun StateBasicsLearningScreen() {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),

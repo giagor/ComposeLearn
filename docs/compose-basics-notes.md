@@ -106,7 +106,7 @@
 
 对应代码：
 
-- [BasicLayoutsSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt#L303)
+- [BasicLayoutsSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/BasicsLearningScreen.kt#L303)
 
 
 
@@ -124,8 +124,8 @@
 
 对应代码：
 
-- [ScrollSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt#L392)
-- [LazyColumnSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt#L495)
+- [ScrollSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/BasicsLearningScreen.kt#L392)
+- [LazyColumnSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/BasicsLearningScreen.kt#L495)
 
 
 

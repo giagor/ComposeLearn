@@ -18,7 +18,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ComposeLearnTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ComposeLearningHomeScreen(contentPadding = innerPadding)
+                    LearningHomeScreen(contentPadding = innerPadding)
                 }
             }
         }
@@ -27,8 +27,8 @@ class MainActivity : ComponentActivity() {
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-private fun ComposeLearningHomeScreenPreview() {
+private fun LearningHomeScreenPreview() {
     ComposeLearnTheme {
-        ComposeLearningHomeScreen()
+        LearningHomeScreen()
     }
 }
