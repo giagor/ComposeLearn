@@ -7,8 +7,7 @@
 
 配套代码：
 
-- [MainActivity.kt](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/MainActivity.kt)
-- [ComposeBasicsLearningScreen.kt](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt)
+- [ComposeLearn](https://github.com/giagor/ComposeLearn)
 
 # 整体介绍
 
@@ -34,8 +33,7 @@
    - 列表、滚动、Material3 基础
    - Modifier 常见用法
 3. **核心心智**
-   - 声明式 UI
-   - 重组是什么
+   - 声明式 UI 与重组
    - 渲染三阶段：组合 / 布局 / 绘制
    - Modifier 执行顺序与包裹模型
 4. **状态管理基础**
@@ -186,3 +184,62 @@ TextField(
 - 用户修改时通过回调抛出新值
 - 你更新状态
 - UI 自动刷新
+
+# 核心心智
+
+## 声明式 UI 与重组
+
+核心结论：
+
+- Compose 更像 `UI = f(State)`
+- 状态变了，Compose 会重新执行相关 Composable
+- 重组不等于整页重建，谁读取状态，谁就更相关
+
+
+
+声明式 UI：
+
+```kotlin
+var count by remember { mutableIntStateOf(0) }
+
+Text(
+    text = if (count == 0) "还没有点击" else "已经点击了 $count 次"
+)
+
+Button(onClick = { count++ }) {
+    Text("点击 +1")
+}
+```
+
+ - 改的是状态，不是手动改控件
+ - UI 会自动反映当前状态
+
+
+
+重组：
+
+```kotlin
+@Composable
+fun Screen() {
+    var count by remember { mutableIntStateOf(0) }
+
+    Column {
+        CounterText(count)
+        StaticTitle()
+    }
+}
+
+@Composable
+fun CounterText(count: Int) {
+    Text("count = $count")
+}
+
+@Composable
+fun StaticTitle() {
+    Text("我是固定标题")
+}
+```
+
+- `count` 变化后，`CounterText(count)` 更相关
+- `StaticTitle()` 不读取 `count`，通常就没那么相关
+- 谁读取状态，谁就更可能跟着重组

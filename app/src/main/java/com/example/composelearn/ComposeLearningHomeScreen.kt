@@ -22,14 +22,15 @@ import androidx.compose.ui.unit.dp
 
 private enum class LearningSection(val label: String) {
     Basics("基础入门"),
-    Practice("先做小实战")
+    Practice("先做小实战"),
+    CoreMindset("核心心智")
 }
 
 @Composable
 fun ComposeLearningHomeScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
-    var currentSection by remember { mutableStateOf(LearningSection.Practice) }
+    var currentSection by remember { mutableStateOf(LearningSection.CoreMindset) }
 
     Column(
         modifier = Modifier
@@ -44,6 +45,7 @@ fun ComposeLearningHomeScreen(
         when (currentSection) {
             LearningSection.Basics -> ComposeBasicsLearningScreen()
             LearningSection.Practice -> ComposePracticeLearningScreen()
+            LearningSection.CoreMindset -> ComposeCoreMindsetLearningScreen()
         }
     }
 }
