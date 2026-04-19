@@ -15,9 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -58,7 +61,8 @@ fun ComposeBasicsLearningScreen(
         "1. Text / Button / Card",
         "2. TextField / Checkbox / Switch / Slider",
         "3. Row / Column / Box / Spacer",
-        "4. LazyColumn"
+        "4. Scrollable Row / Column",
+        "5. LazyColumn"
     )
 
     LazyColumn(
@@ -86,6 +90,10 @@ fun ComposeBasicsLearningScreen(
 
         item {
             BasicLayoutsSection()
+        }
+
+        item {
+            ScrollSection()
         }
 
         item {
@@ -373,6 +381,109 @@ private fun BasicLayoutsSection() {
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScrollSection() {
+    val tags = listOf(
+        "Text",
+        "Button",
+        "Card",
+        "Modifier",
+        "Row",
+        "Column",
+        "Box",
+        "LazyColumn"
+    )
+    val verticalItems = List(8) { index -> "第 ${index + 1} 个纵向滚动项" }
+
+    LearningSection(
+        title = "滚动基础",
+        summary = "普通 Row 和 Column 默认都不滚动。要滚动，就显式加 horizontalScroll 或 verticalScroll。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Row + horizontalScroll", style = MaterialTheme.typography.titleSmall)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    tags.forEach { tag ->
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = tag,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = "适合少量横向内容，比如标签栏、筛选条件、头像带。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Column + verticalScroll", style = MaterialTheme.typography.titleSmall)
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        verticalItems.forEach { item ->
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = item,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    text = "适合内容不多，但整块页面需要上下滚动的场景。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("怎么选滚动容器", style = MaterialTheme.typography.titleSmall)
+                    Text("Column：竖向排布，本身不滚动。")
+                    Text("Column + verticalScroll：少量内容整体滚动。")
+                    Text("LazyColumn：长列表，按需组合，更适合数据列表。")
                 }
             }
         }
