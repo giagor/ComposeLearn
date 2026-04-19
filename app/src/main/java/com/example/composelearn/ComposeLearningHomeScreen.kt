@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.composelearn.coremindset.ComposeCoreMindsetLearningScreen
 
 private enum class LearningSection(val label: String) {
     Basics("基础入门"),

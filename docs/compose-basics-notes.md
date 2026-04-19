@@ -243,3 +243,49 @@ fun StaticTitle() {
 - `count` 变化后，`CounterText(count)` 更相关
 - `StaticTitle()` 不读取 `count`，通常就没那么相关
 - 谁读取状态，谁就更可能跟着重组
+
+## 组合 / 布局 / 绘制
+
+组合：决定有哪些 UI
+
+布局：决定多大、放哪
+
+绘制：决定长什么样
+
+
+
+组合：
+
+```kotlin
+if (showText) {
+    Text("我是可选内容")
+}
+```
+
+`showText` 改变后，这块 UI 会出现或消失，这是组合层面的变化。
+
+
+
+布局：
+
+```kotlin
+Box(
+    modifier = Modifier.size(if (expanded) 120.dp else 60.dp)
+)
+```
+
+UI 还在，但大小变了，这是布局层面的变化。
+
+
+
+绘制：
+
+```kotlin
+Box(
+    modifier = Modifier.background(
+        if (highlight) Color.Yellow else Color.Gray
+    )
+)
+```
+
+UI 还在，大小和位置也没变，主要变化是颜色或背景，这是绘制层面的变化。
