@@ -337,3 +337,48 @@ Box(
 ```
 
 `highlight` 变了 -> 相关 Composable 重组 -> UI 还在，大小位置没变，主要是颜色变了 -> 更接近影响绘制。
+
+## Modifier 执行顺序 / 包裹模型
+
+核心结论：
+
+- Modifier 是链式执行的
+- 顺序不同，包裹关系不同，结果也可能不同
+
+
+
+未加 Modifier 的原始效果：
+
+```kotlin
+Text(
+    text = "A"
+)
+
+Text(
+    text = "B"
+)
+```
+
+![未添加 Modifier](images/modifier_order_origin.png)
+
+
+
+加了 Modifier 后的效果对比：
+
+```kotlin
+Text(
+    text = "A",
+    modifier = Modifier
+        .background(Color(0xFFBFDBFE))
+        .padding(16.dp)
+)
+
+Text(
+    text = "B",
+    modifier = Modifier
+        .padding(16.dp)
+        .background(Color(0xFFBFDBFE))
+)
+```
+
+![添加 Modifier 后的效果](images/modifier_order_compare.png)

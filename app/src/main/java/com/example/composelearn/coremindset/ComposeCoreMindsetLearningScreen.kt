@@ -1,6 +1,7 @@
 package com.example.composelearn.coremindset
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,7 +36,8 @@ import androidx.compose.ui.unit.dp
  */
 private enum class CoreMindsetLesson(val label: String) {
     DeclarativeAndRecompose("声明式 UI 与重组"),
-    Phases("组合 / 布局 / 绘制")
+    Phases("组合 / 布局 / 绘制"),
+    ModifierOrder("Modifier 执行顺序 / 包裹模型")
 }
 
 @Composable
@@ -57,6 +60,7 @@ fun ComposeCoreMindsetLearningScreen() {
             when (currentLesson) {
                 CoreMindsetLesson.DeclarativeAndRecompose -> DeclarativeAndRecomposeLesson()
                 CoreMindsetLesson.Phases -> ComposePhasesLesson()
+                CoreMindsetLesson.ModifierOrder -> ModifierOrderLesson()
             }
         }
     }
@@ -91,7 +95,7 @@ private fun CoreMindsetHeader() {
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
-                text = "按顺序学习：声明式 UI 与重组 -> 组合 / 布局 / 绘制。",
+                text = "按顺序学习：声明式 UI 与重组 -> 组合 / 布局 / 绘制 -> Modifier 执行顺序 / 包裹模型。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -110,7 +114,9 @@ private fun CoreMindsetSelector(
         shape = RoundedCornerShape(24.dp)
     ) {
         Row(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier
+                .padding(18.dp)
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             CoreMindsetLesson.entries.forEach { lesson ->
