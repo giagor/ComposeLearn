@@ -101,6 +101,16 @@
 - `Box`：叠层布局
 - `Spacer`：制造间距
 
+传统布局和 Compose 布局的映射关系：
+
+- `LinearLayout` -> `Row` / `Column`
+- `FrameLayout` -> `Box`
+- `ScrollView` -> `Column + verticalScroll(...)`
+- `HorizontalScrollView` -> `Row + horizontalScroll(...)`
+- `RecyclerView` -> `LazyColumn` / `LazyRow`
+- `RelativeLayout` -> 没有完全等价的默认容器，通常用 `Row` / `Column` / `Box` 组合替代
+- `ConstraintLayout` -> Compose 里也有官方库 `constraintlayout-compose`，但不是默认首选，通常在复杂约束场景下按需使用
+
 对应代码：
 
 - [BasicLayoutsSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt#L303)
