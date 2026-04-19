@@ -1,0 +1,183 @@
+# 相关文档
+
+- [Build better apps faster with Jetpack Compose](https://developer.android.com/compose)
+- [android/compose-samples](https://github.com/android/compose-samples)
+- [Compose 中的组件](https://developer.android.com/develop/ui/compose/components?hl=zh-cn)
+- [Compose 中的布局](https://developer.android.com/develop/ui/compose/layouts?hl=zh-cn)
+
+配套代码：
+
+- [MainActivity.kt](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/MainActivity.kt)
+- [ComposeBasicsLearningScreen.kt](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt)
+
+# 整体介绍
+
+**Compose UI 是对 Android UI 开发方式和 UI 运行机制的一次重构。**
+
+1. **从命令式 UI 到声明式 UI** 
+   传统 View 开发里，我们不仅要创建界面，还要在数据变化后手动更新界面，比如 `textView.setText("Hello")`。 
+   Compose 更像是 `UI = f(State)`：界面由状态决定。状态变化后，Compose 会自动触发相关 UI 的重新执行，并尽量只更新受影响的部分。
+
+2. **从继承式组件到组合式构建** 
+   传统 View 体系强依赖继承，例如 `Button -> TextView -> View`，组件往往会带上很多并不总是需要的能力。 
+   Compose 更强调“组合”：界面是由一个个小的可复用函数拼出来的。这样代码更灵活、更容易复用，也更容易按需组织 UI 能力。
+
+3. **从 View 树驱动到 Compose 运行时驱动** 
+   Compose 的界面节点不再是传统的 View 对象树，而是由 Compose Runtime 和 UI 系统管理。 
+   它仍然有自己的**组合、布局、绘制**流程，但这套机制比传统 View 树更轻量，也更适合声明式更新。再配合编译器和运行时优化，Compose 可以更高效地完成界面更新与渲染。
+
+# 学习路线
+
+1. **基础入门**
+   - 常用组件
+   - Row / Column / Box
+   - 列表、滚动、Material3 基础
+   - Modifier 常见用法
+2. **先做小实战**
+   - 登录页
+   - 设置页
+   - 列表 + 详情页
+   - 加载态 / 空态 / 错误态
+3. **核心心智**
+   - 声明式 UI
+   - 重组是什么
+   - 渲染三阶段：组合 / 布局 / 绘制
+   - Modifier 执行顺序与包裹模型
+4. **状态管理基础**
+   - `mutableStateOf`
+   - `remember`
+   - `rememberSaveable`
+   - 状态提升
+   - 单向数据流
+5. **副作用与异步**
+   - `LaunchedEffect`
+   - `DisposableEffect`
+   - `SideEffect`
+   - `produceState`
+   - `snapshotFlow`
+6. **性能与进阶状态**
+   - `derivedStateOf`
+   - Stability
+   - 为什么会发生不必要重组
+   - 列表性能、延迟加载、避免无效计算
+7. **互操作与工程化**
+   - Compose 和 View 混编
+   - `ComposeView`
+   - `AndroidView`
+   - 导航、主题、分层架构、ViewModel 配合
+8. **底层原理与高阶能力**
+   - Slot Table
+   - Gap Buffer
+   - 自定义 Layout
+   - 自定义绘制
+   - `graphicsLayer` 和渲染优化
+
+# 基础入门
+
+## 组件和布局
+
+- Compose 是声明式 UI：`UI = f(State)`
+- `@Composable` 函数用来声明界面，不是手动操作界面
+- 页面通常由很多小 Composable 组合而成
+
+
+
+本阶段接触过的组件：
+
+- `Text`：显示文本
+- `Button` / `OutlinedButton`：触发操作
+- `Card`：承载内容
+- `TextField` / `OutlinedTextField`：输入内容
+- `Checkbox` / `Switch` / `Slider`：表达和修改状态
+- `LinearProgressIndicator`：展示进度
+- `AssistChip` / `FilterChip`：展示轻量操作或筛选项
+
+
+
+最重要的 4 个布局：
+
+- `Column`：纵向排列
+- `Row`：横向排列
+- `Box`：叠层布局
+- `Spacer`：制造间距
+
+对应代码：
+
+- [BasicLayoutsSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt#L303)
+
+
+
+滚动相关：
+
+- `Column` 默认不滚动
+- `Row` 默认不滚动
+- 需要滚动时，显式加 `verticalScroll(...)` 或 `horizontalScroll(...)`
+
+常见选择：
+
+- `Column`：内容少，不滚动
+- `Column + verticalScroll`：内容少，但要整体滚动
+- `LazyColumn`：长列表、数据列表
+
+对应代码：
+
+- [ScrollSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt#L392)
+- [LazyColumnSection](https://github.com/giagor/ComposeLearn/blob/main/app/src/main/java/com/example/composelearn/ComposeBasicsLearningScreen.kt#L495)
+
+
+
+容器相关：
+
+- `Surface`：更基础、更通用的容器
+- `Card`：更场景化、更语义化的容器
+
+
+简单记：
+
+- 想包一层背景、圆角、承载面：`Surface`
+- 想表达“这是一张卡片”：`Card`
+
+## Modifier
+
+`Modifier` 用来控制：
+
+- 尺寸：`fillMaxWidth()`、`height()`、`size()`
+- 间距：`padding()`
+- 外观：`background()`、`clip()`、`border()`
+- 布局行为：`weight()`、`align()`
+- 滚动：`verticalScroll()`、`horizontalScroll()`
+
+最重要的一点：
+
+- `Modifier` 是按顺序执行的
+- 顺序不同，效果可能不同
+
+## 状态
+
+本阶段接触到的核心写法：
+
+```kotlin
+var name by remember { mutableStateOf("Compose") }
+```
+
+理解这句就够了：
+
+- `mutableStateOf(...)` 创建状态
+- `remember { ... }` 让状态在重组时保留
+- 状态变化会驱动 UI 更新
+
+常见模式：
+
+```kotlin
+TextField(
+    value = name,
+    onValueChange = { name = it }
+)
+```
+
+也就是：
+
+- 组件接收当前值
+- 用户修改时通过回调抛出新值
+- 你更新状态
+- UI 自动刷新
