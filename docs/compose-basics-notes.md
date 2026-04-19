@@ -252,8 +252,6 @@ fun StaticTitle() {
 
 绘制：决定长什么样
 
-
-
 组合：
 
 ```kotlin
@@ -289,3 +287,53 @@ Box(
 ```
 
 UI 还在，大小和位置也没变，主要变化是颜色或背景，这是绘制层面的变化。
+
+## 重组和三阶段的关系
+
+> 三阶段：组合 / 布局 / 绘制
+
+这一节要说明的是：重组和三阶段不是一回事。
+
+- 重组回答的是：哪些 Composable 要重新执行
+
+- 三阶段回答的是：重新执行后，UI 哪一层真的发生了变化
+
+- 状态变了，先发生重组，重组会重新执行相关 Composable，接着 Compose 再决定这次变化主要影响组合、布局还是绘制
+
+  
+
+重组与组合：
+
+```kotlin
+if (showText) {
+    Text("Hello")
+}
+```
+
+`showText` 变了 -> 相关 Composable 重组 -> 这块 UI 直接出现 / 消失 -> 更接近影响组合。
+
+
+
+重组与布局：
+
+```kotlin
+Box(
+    modifier = Modifier.size(if (expanded) 120.dp else 60.dp)
+)
+```
+
+`expanded` 变了 -> 相关 Composable 重组 -> UI 还在，但尺寸变了 -> 更接近影响布局。
+
+
+
+重组与绘制：
+
+```kotlin
+Box(
+    modifier = Modifier.background(
+        if (highlight) Color.Yellow else Color.Gray
+    )
+)
+```
+
+`highlight` 变了 -> 相关 Composable 重组 -> UI 还在，大小位置没变，主要是颜色变了 -> 更接近影响绘制。
