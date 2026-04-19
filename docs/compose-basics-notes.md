@@ -382,3 +382,53 @@ Text(
 ```
 
 ![添加 Modifier 后的效果](images/modifier_order_compare.png)
+
+# 状态管理基础
+
+## mutableStateOf / remember
+
+核心写法：
+
+```kotlin
+var name by remember { mutableStateOf("Compose") }
+```
+
+各自负责：
+
+- `mutableStateOf(...)` 创建可观察状态
+- `remember { ... }` 让状态在重组时保留
+- 状态变化会驱动 UI 更新
+
+
+
+加了 `remember`：
+
+```kotlin
+@Composable
+fun Counter(trigger: Int) {
+    var count by remember { mutableIntStateOf(0) }
+
+    Text("count = $count, trigger = $trigger")
+}
+```
+
++ `trigger` 变化时，`Counter(trigger)` 也会重组；但因为 `count` 被 `remember` 保住了，所以这份状态对象不会重新创建。
+
++ 加了 `remember`：下次重组时，继续使用同一个状态对象
+
+
+
+不加 `remember`：
+
+```kotlin
+@Composable
+fun Counter(trigger: Int) {
+    var count by mutableIntStateOf(0)
+
+    Text("count = $count, trigger = $trigger")
+}
+```
+
++ `trigger` 变化时，`Counter(trigger)` 会重组；这时 `var count by mutableIntStateOf(0)` 会重新执行，状态对象可能重新创建，`count` 就可能回到初始值。
+
+- 不加 `remember`：如果 Composable 因为重组重新执行到这行代码，就会重新创建一份新的 `mutableIntStateOf(0)`
