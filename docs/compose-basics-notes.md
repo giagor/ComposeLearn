@@ -432,3 +432,17 @@ fun Counter(trigger: Int) {
 + `trigger` 变化时，`Counter(trigger)` 会重组；这时 `var count by mutableIntStateOf(0)` 会重新执行，状态对象可能重新创建，`count` 就可能回到初始值。
 
 - 不加 `remember`：如果 Composable 因为重组重新执行到这行代码，就会重新创建一份新的 `mutableIntStateOf(0)`
+
+## rememberSaveable
+
+核心写法：
+
+```kotlin
+var count by remember { mutableIntStateOf(0) }
+var count by rememberSaveable { mutableIntStateOf(0) }
+```
+
+各自负责：
+
+- `remember` 让状态在重组时保留
+- `rememberSaveable` 在此基础上，进一步处理配置变化后的恢复，例如旋转屏幕后，`rememberSaveable` 的数据通常还能恢复。它更适合输入框内容、当前 tab、简单筛选条件这类需要恢复的 UI 状态。

@@ -17,11 +17,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -30,7 +32,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * 状态管理基础模块入口。
- * 当前先放第一个最小样例：remember + mutableIntStateOf。
+ * 样例：remember + mutableIntStateOf；rememberSaveable
  */
 private const val TAG = "StateBasicsLearningScreen"
 @Composable
@@ -43,6 +45,7 @@ fun StateBasicsLearningScreen() {
         item { StateBasicsHeader() }
         item { RememberIntStateLesson() }
         item { NoRememberIntStateLesson() }
+        item { RememberSaveableLesson() }
     }
 }
 
@@ -71,7 +74,7 @@ private fun StateBasicsHeader() {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "这一部分先从最小状态样例开始：remember + mutableIntStateOf。",
+                text = "这一部分先学 remember、mutableIntStateOf、rememberSaveable。",
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -216,6 +219,110 @@ private fun NoRememberCounter(trigger: Int) {
                 }
                 Button(onClick = { count = 0 }) {
                     Text("重置")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RememberSaveableLesson() {
+    Log.d(TAG, "RememberSaveableLesson: ")
+    var rememberCount by remember { mutableIntStateOf(0) }
+    var saveableCount by rememberSaveable { mutableIntStateOf(0) }
+    var rememberText by remember { androidx.compose.runtime.mutableStateOf("remember") }
+    var saveableText by rememberSaveable { androidx.compose.runtime.mutableStateOf("rememberSaveable") }
+
+    StateLessonCard(
+        title = "rememberSaveable",
+        summary = "目标是理解：remember 解决重组，rememberSaveable 进一步解决配置变化后的恢复。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "先改这两组状态，再旋转屏幕观察差异。",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Text(
+                        text = "remember：count = $rememberCount",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = { rememberCount++ }) {
+                            Text("remember +1")
+                        }
+                        Button(onClick = { rememberCount = 0 }) {
+                            Text("重置")
+                        }
+                    }
+                    TextField(
+                        value = rememberText,
+                        onValueChange = { rememberText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("remember 文本") }
+                    )
+
+                    HorizontalDivider()
+
+                    Text(
+                        text = "rememberSaveable：count = $saveableCount",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = { saveableCount++ }) {
+                            Text("saveable +1")
+                        }
+                        Button(onClick = { saveableCount = 0 }) {
+                            Text("重置")
+                        }
+                    }
+                    TextField(
+                        value = saveableText,
+                        onValueChange = { saveableText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("rememberSaveable 文本") }
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. 普通重组下，remember 和 rememberSaveable 都能保住状态。")
+                    Text("2. 旋转屏幕这类配置变化后，remember 通常会丢，rememberSaveable 更适合恢复。")
+                    Text("3. rememberSaveable 更适合输入框内容、当前 tab、简单筛选条件。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("代码", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+var count by rememberSaveable { mutableIntStateOf(0) }
+var text by rememberSaveable { mutableStateOf("") }
+                        """.trimIndent()
+                    )
                 }
             }
         }
