@@ -45,9 +45,9 @@
 5. **副作用与异步**
    - `LaunchedEffect`
    - `DisposableEffect`
+   - `snapshotFlow`
    - `SideEffect`
    - `produceState`
-   - `snapshotFlow`
 6. **性能与进阶状态**
    - `derivedStateOf`
    - Stability
@@ -721,3 +721,52 @@ DisposableEffect(cameraController) {
     }
 }
 ```
+
+## snapshotFlow
+
+核心结论：
+
+- `snapshotFlow` 可以把 Compose 状态变化转成 Flow
+- 它主要用于观察 Compose state，不是普通变量
+
+
+
+什么时候使用：
+
+- 输入框内容变化后做搜索或防抖
+- 滚动位置变化后做上报或联动（把滚动状态当成一个持续变化的数据源，拿来做统计，或者驱动别的界面状态变化）
+- 选择状态变化后继续走 Flow 处理链
+
+
+
+最小例子：
+
+```kotlin
+LaunchedEffect(Unit) {
+    snapshotFlow { keyword }
+        .filter { it.isNotBlank() }
+        .distinctUntilChanged()
+        .collectLatest { value ->
+            latestLog = "\"$value\" 触发了一次收集"
+        }
+}
+```
+
+- `snapshotFlow { keyword }`：观察 `keyword` 这个 Compose 状态
+- `filter { it.isNotBlank() }`：过滤空字符串
+- `distinctUntilChanged()`：相同值不重复往下传
+- `collectLatest { value -> ... }`：如果前一个值的处理还没结束，新值来了就取消前一个，优先处理最新值
+
+
+
+和 Compose 状态的关系：
+
+- `snapshotFlow` 观察的是 block 里读取到的 Compose 状态
+- 如果只是普通 `String` 或普通变量，它不会像 Compose state 那样被持续观察
+
+
+
+作用：
+
+- 把 Compose 状态接入 Flow 的处理链
+- 让状态变化可以继续配合 `filter`、`distinctUntilChanged`、`collectLatest` 这类操作符使用

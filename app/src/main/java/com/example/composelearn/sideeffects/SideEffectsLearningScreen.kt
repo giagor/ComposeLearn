@@ -26,11 +26,15 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.delay
 
 /**
@@ -49,6 +53,7 @@ fun SideEffectsLearningScreen() {
         item { LaunchedEffectEnterLesson() }
         item { LaunchedEffectKeyLesson() }
         item { DisposableEffectLesson() }
+        item { SnapshotFlowLesson() }
     }
 }
 
@@ -77,7 +82,7 @@ private fun SideEffectsHeader() {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "这一部分先学 LaunchedEffect 和 DisposableEffect：什么时候启动协程，什么时候注册并清理资源。",
+                text = "这一部分先学 LaunchedEffect、DisposableEffect、snapshotFlow：什么时候启动协程，什么时候清理资源，什么时候把状态变化转成 Flow。",
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -313,6 +318,95 @@ private fun ListenerPanel(listenerId: Int) {
         ) {
             Text("ListenerPanel", fontWeight = FontWeight.Bold)
             Text(status)
+        }
+    }
+}
+
+@Composable
+private fun SnapshotFlowLesson() {
+    var keyword by remember { mutableStateOf("") }
+    var submitCount by remember { mutableIntStateOf(0) }
+    var latestLog by remember { mutableStateOf("等待输入...") }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { keyword }
+            .filter { it.isNotBlank() }
+            .distinctUntilChanged()
+            .collectLatest { value ->
+                latestLog = "\"$value\" 触发了一次收集"
+            }
+    }
+
+    SideEffectLessonCard(
+        title = "snapshotFlow",
+        summary = "目标是理解：把 Compose 状态的变化转成 Flow，再在协程里收集。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            OutlinedTextField(
+                value = keyword,
+                onValueChange = { keyword = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("输入关键词") }
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = { submitCount++ }) {
+                    Text("模拟其他重组")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("当前 keyword = \"$keyword\"", fontWeight = FontWeight.Bold)
+                    Text("当前 submitCount = $submitCount")
+                    Text("最新日志 = $latestLog")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("代码", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+LaunchedEffect(Unit) {
+    snapshotFlow { keyword }
+        .filter { it.isNotBlank() }
+        .distinctUntilChanged()
+        .collectLatest { value ->
+            latestLog = "\"${'$'}value\" 触发了一次收集"
+        }
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. snapshotFlow 会观察 block 里读取到的 Compose 状态。")
+                    Text("2. keyword 变化时会发射新值，其他无关重组不会触发新值。")
+                    Text("3. 它常用于把滚动、输入、选择状态转成 Flow 继续处理。")
+                }
+            }
         }
     }
 }
