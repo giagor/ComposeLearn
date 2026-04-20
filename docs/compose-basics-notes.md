@@ -976,4 +976,96 @@ val result by produceState(
 | `SideEffect` | 每次成功重组后，把最新状态同步给外部对象 | analytics、旧 View 桥接、外部 holder 同步 |
 | `produceState` | 把异步生产过程直接包装成 `State` | 根据 key 异步加载结果给 UI、收口异步状态 |
 
+# 性能与进阶状态
 
+## derivedStateOf
+
+核心结论：
+
+- `derivedStateOf` 用来表达派生状态
+- 派生状态 = 完全由其他状态推导出来的状态
+- 它首先是状态建模更清楚，在某些场景下也可能带来性能收益
+
+
+
+什么时候使用：
+
+- 一个状态完全由其他状态推导出来
+- 这个派生结果会被多处读取
+- 你想把依赖关系单独表达清楚
+
+
+
+最小例子：
+
+```kotlin
+val canSearch by remember {
+    derivedStateOf { keyword.trim().length >= 3 }
+}
+```
+
+- `canSearch` 不是独立状态，它完全由 `keyword` 推导出来
+- 需要被 `remember` 的不是布尔值本身，而是 `derivedStateOf` 创建出来的派生状态对象
+- 如果不加 `remember`，每次重组都会重新创建一个新的派生状态对象。虽然很多简单场景下看起来也能跑，但这样就失去了重点：这不是一份稳定复用的派生状态，而是每次重组都重新构造一次
+
+
+
+什么时候没必要用：
+
+```kotlin
+Text(if (score >= 60) "及格" else "不及格")
+```
+
+- 如果只是一次性、很短的判断，不一定要上 `derivedStateOf`
+
+
+
+可能的性能收益：
+
+```kotlin
+var score by remember { mutableFloatStateOf(60f) }
+val isPassed by remember {
+    derivedStateOf { score >= 60f }
+}
+
+DirectThresholdPanel(score = score)
+DerivedThresholdPanel(isPassed = isPassed)
+```
+
+```kotlin
+@Composable
+fun DirectThresholdPanel(score: Float) {
+    val isPassed = score >= 60f
+
+    Log.d(TAG, "DirectThresholdPanel1 start")
+    SideEffect {
+        Log.d("AdvancedState", "DirectThresholdPanel1 recomposed, score=$score, isPassed=$isPassed")
+    }
+
+    Text("score = $score, isPassed = $isPassed")
+}
+```
+
+```kotlin
+@Composable
+fun DerivedThresholdPanel(isPassed: Boolean) {
+    Log.d(TAG, "DerivedThresholdPanel2 start")
+    SideEffect {
+        Log.d("AdvancedState", "DerivedThresholdPanel2 recomposed, isPassed=$isPassed")
+    }
+
+    Text("isPassed = $isPassed")
+}
+```
+
+- 拖动 `60..100` 之间的滑块时，`score` 会频繁变化，但 `isPassed` 会一直是 `true`。Logcat 里，`DirectThresholdPanel1 start`和`DirectThresholdPanel1 recomposed...` 会更频繁出现；`DerivedThresholdPanel2 start`和`DerivedThresholdPanel2 recomposed...` 会明显更少，甚至在 `isPassed` 一直没变时不再继续打印
+- 不用 `derivedStateOf` 时，下游直接依赖 `score`，`score` 每次变化都更容易触发下游继续参与重组
+- 用了 `derivedStateOf` 后，下游只依赖 `isPassed`；当结果一直是 `true` 时，那部分更容易被跳过
+- 这就是它可能带来的性能收益：当底层状态频繁变化、派生结果没变时，能减少下游对高频原始状态的无意义响应
+
+
+
+一句话区分：
+
+- 想表达“这是一个派生状态”，用 `derivedStateOf`
+- 只是临时写一行简单判断，不一定需要它
