@@ -966,5 +966,14 @@ val result by produceState(
 - 想执行协程逻辑，用 `LaunchedEffect`
 - 想把异步逻辑直接包装成 UI 状态，用 `produceState`
 
+## 小结
+
+| API | 核心作用 | 什么时候用 |
+| --- | --- | --- |
+| `LaunchedEffect` | 启动和当前 UI 生命周期绑定的协程 | 页面进入后加载、倒计时、key 变化后的异步任务 |
+| `DisposableEffect` | 注册资源，并在离开组合或 key 变化时清理 | 监听器、回调、观察者、需要手动释放的对象 |
+| `snapshotFlow` | 把 Compose 状态变化转成 Flow | 搜索、防抖、滚动状态监听、状态流处理 |
+| `SideEffect` | 每次成功重组后，把最新状态同步给外部对象 | analytics、旧 View 桥接、外部 holder 同步 |
+| `produceState` | 把异步生产过程直接包装成 `State` | 根据 key 异步加载结果给 UI、收口异步状态 |
 
 
