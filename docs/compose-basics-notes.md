@@ -446,3 +446,50 @@ var count by rememberSaveable { mutableIntStateOf(0) }
 
 - `remember` 让状态在重组时保留
 - `rememberSaveable` 在此基础上，进一步处理配置变化后的恢复，例如旋转屏幕后，`rememberSaveable` 的数据通常还能恢复。它更适合输入框内容、当前 tab、简单筛选条件这类需要恢复的 UI 状态。
+
+## 状态提升
+
+核心结论：
+
+- 状态不要总写在组件内部
+- 很多时候应该把状态提到外层统一管理
+
+
+
+对比：
+
+```kotlin
+// 组件内部管理状态
+@Composable
+fun StatefulCounter() {
+    var count by remember { mutableIntStateOf(0) }
+
+    CounterCard(
+        label = "内部状态",
+        count = count,
+        onIncrement = { count++ },
+        onReset = { count = 0 }
+    )
+}
+```
+
+```kotlin
+// 外部管理状态
+@Composable
+fun StatelessCounter(
+    count: Int,
+    onIncrement: () -> Unit,
+    onReset: () -> Unit
+) {
+    CounterCard(
+        label = "外部状态",
+        count = count,
+        onIncrement = onIncrement,
+        onReset = onReset
+    )
+}
+```
+
+- 组件内部自己管状态时，组件更完整，但复用和测试会更受限
+- 外层统一管理状态时，子组件只负责展示和回调，职责更清晰
+- 这就是状态提升：把状态提到更高一层

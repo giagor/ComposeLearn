@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * 状态管理基础模块入口。
- * 样例：remember + mutableIntStateOf；rememberSaveable
+ * 样例：remember + mutableIntStateOf；rememberSaveable；状态提升
  */
 private const val TAG = "StateBasicsLearningScreen"
 @Composable
@@ -46,6 +46,7 @@ fun StateBasicsLearningScreen() {
         item { RememberIntStateLesson() }
         item { NoRememberIntStateLesson() }
         item { RememberSaveableLesson() }
+        item { StateHoistingLesson() }
     }
 }
 
@@ -323,6 +324,142 @@ var count by rememberSaveable { mutableIntStateOf(0) }
 var text by rememberSaveable { mutableStateOf("") }
                         """.trimIndent()
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StateHoistingLesson() {
+    var hoistedCount by remember { mutableIntStateOf(0) }
+
+    StateLessonCard(
+        title = "状态提升",
+        summary = "目标是理解：状态不要总写在组件内部，很多时候应该提到外层统一管理。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "组件内部自己管状态",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    StatefulCounter()
+
+                    HorizontalDivider()
+
+                    Text(
+                        text = "外层统一管理状态",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    StatelessCounter(
+                        count = hoistedCount,
+                        onIncrement = { hoistedCount++ },
+                        onReset = { hoistedCount = 0 }
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. 组件内部自己管状态时，组件更完整，但复用和测试会更受限。")
+                    Text("2. 外层统一管理状态时，子组件只负责展示和回调，职责更清晰。")
+                    Text("3. 这就是状态提升：把状态提到更高一层。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("代码", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+@Composable
+fun Counter(count: Int, onIncrement: () -> Unit) {
+    Button(onClick = onIncrement) {
+        Text("${'$'}count")
+    }
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatefulCounter() {
+    var count by remember { mutableIntStateOf(0) }
+
+    CounterCard(
+        label = "内部状态",
+        count = count,
+        onIncrement = { count++ },
+        onReset = { count = 0 }
+    )
+}
+
+@Composable
+private fun StatelessCounter(
+    count: Int,
+    onIncrement: () -> Unit,
+    onReset: () -> Unit
+) {
+    CounterCard(
+        label = "外部状态",
+        count = count,
+        onIncrement = onIncrement,
+        onReset = onReset
+    )
+}
+
+@Composable
+private fun CounterCard(
+    label: String,
+    count: Int,
+    onIncrement: () -> Unit,
+    onReset: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "$label：count = $count",
+                fontWeight = FontWeight.Bold
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onIncrement) {
+                    Text("+1")
+                }
+                Button(onClick = onReset) {
+                    Text("重置")
                 }
             }
         }
