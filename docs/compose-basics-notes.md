@@ -542,3 +542,88 @@ fun SearchBox(
 - 状态来源更清晰
 - 组件职责更单一
 - 排查问题和后续扩展更容易
+
+# 副作用与异步
+
+## LaunchedEffect
+
+核心结论：
+
+- `LaunchedEffect` 是 Compose 提供的副作用 API
+- 它适合启动和当前 UI 生命周期绑定的协程
+- `LaunchedEffect` 内部的协程会在进入组合后自动启动，离开组合后自动取消
+
+
+
+副作用：
+
+- 副作用指的不是单纯描述 UI 的代码
+- 启动协程、发请求、倒计时、订阅这类额外动作，都属于副作用
+
+
+
+什么时候使用：
+
+- 页面进入后自动加载一次数据
+- 页面出现后开始倒计时
+- 某个 key 变化后自动发起异步任务
+
+
+
+`LaunchedEffect`使用例子：
+
+```kotlin
+LaunchedEffect(Unit) {
+    while (true) {
+        delay(1000)
+        seconds++
+    }
+}
+```
+
+- `LaunchedEffect(Unit)` 常用于页面进入后的首次加载、倒计时、自动刷新
+
+```kotlin
+LaunchedEffect(keyword) {
+    searchResult = "搜索中..."
+    delay(700)
+    searchResult = "\"$keyword\" 的结果已返回"
+}
+```
+
+- `LaunchedEffect(keyword)` 常用于搜索、防抖、根据条件变化自动刷新
+- `keyword` 变化时，旧协程会取消，再按新的 `keyword` 启动新协程
+
+
+
+`LaunchedEffect` 和组合的关系 例子：
+
+```kotlin
+@Composable
+fun Outer(showDemo: Boolean, showEffect: Boolean) {
+    if (showDemo) {
+        Demo(showEffect)
+    }
+}
+
+@Composable
+fun Demo(showEffect: Boolean) {
+    if (showEffect) {
+        LaunchedEffect(Unit) {
+        }
+    }
+}
+```
+
+- 情况 1：`showDemo` 一直是 `true`，`showEffect` 从 `false -> true`，这次组合结果里第一次出现这个 `LaunchedEffect`，它内部的协程会启动
+- 情况 2：`showDemo` 一直是 `true`，`showEffect` 从 `true -> false`，这次组合结果里这个 `LaunchedEffect` 消失，旧协程会取消
+- 情况 3：一开始 `showDemo = true`，`showEffect = true`，协程已经启动；后来 `showDemo = false`，`Demo()` 整块离开组合，里面的 `LaunchedEffect` 也会一起消失，旧协程会取消
+
+
+
+`LaunchedEffect` 和组合的关系 结论：
+
+- `LaunchedEffect` 是否启动和取消，取决于它对应的调用点还在不在当前组合结构里
+- `LaunchedEffect` 进入组合：它内部的协程启动
+- `LaunchedEffect` 离开组合：它内部的协程取消
+- `LaunchedEffect` 的 key 变化：取消旧协程，按新的 key 重启
