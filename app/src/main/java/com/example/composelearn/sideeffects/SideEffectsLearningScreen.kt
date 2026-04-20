@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,6 +57,7 @@ fun SideEffectsLearningScreen() {
         item { DisposableEffectLesson() }
         item { SnapshotFlowLesson() }
         item { SideEffectLesson() }
+        item { ProduceStateLesson() }
     }
 }
 
@@ -84,7 +86,7 @@ private fun SideEffectsHeader() {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "这一部分先学 LaunchedEffect、DisposableEffect、snapshotFlow、SideEffect：什么时候启动协程，什么时候清理资源，什么时候把状态变化转成 Flow，什么时候同步给外部对象。",
+                text = "这一部分先学 LaunchedEffect、DisposableEffect、snapshotFlow、SideEffect、produceState：什么时候启动协程，什么时候清理资源，什么时候把状态变化转成 Flow，什么时候同步给外部对象，什么时候把异步结果转成 State。",
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -431,6 +433,85 @@ private fun SideEffectLesson() {
                     Text(text = "Increase count")
                 }
                 Text(text = "Counter value is: $counter")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProduceStateLesson() {
+    var keyword by remember { mutableStateOf("Compose") }
+    val result by produceState(
+        initialValue = "等待加载...",
+        key1 = keyword
+    ) {
+        value = "加载中..."
+        delay(700)
+        value = "\"$keyword\" 的异步结果"
+    }
+
+    SideEffectLessonCard(
+        title = "produceState",
+        summary = "目标是理解：把异步过程直接包装成 Compose 可读取的 State。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            OutlinedTextField(
+                value = keyword,
+                onValueChange = { keyword = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("输入关键词") }
+            )
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("当前 keyword：$keyword", fontWeight = FontWeight.Bold)
+                    Text("当前 result：$result")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("代码", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+val result by produceState(
+    initialValue = "等待加载...",
+    key1 = keyword
+) {
+    value = "加载中..."
+    delay(700)
+    value = "\"$keyword\" 的异步结果"
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. produceState 会返回一个可直接读取的 State。")
+                    Text("2. keyword 变化时，内部生产逻辑会按新的 key 重新开始。")
+                    Text("3. 它适合把异步加载结果直接暴露给 UI。")
+                }
             }
         }
     }

@@ -901,6 +901,70 @@ fun Counter1() {
 - `counter` 被外面的 `Text("Counter value is: $counter")` 读取
 - **那么不是 `Column` 也形成了作用域吗？`Column` 是 `inline` 的，这里的内容会直接使用外围作用域。因为`SideEffect`所在的那个重组作用域真的发生了重组，因此`SideEffect`内部代码会执行**。
 
+## produceState
+
+核心结论：
+
+- `produceState` 可以把一段异步生产过程直接包装成 Compose 可读取的 `State`
+- 它适合"我要一个给 UI 直接读取的结果"这种场景
+
+
+
+什么时候使用：
+
+- 根据某个 key 异步加载一个结果给 UI
+- 想把“异步过程 -> UI 状态”收在一起
+- 想直接得到一个可读的 `State`
+
+
+
+最小例子：
+
+```kotlin
+val result by produceState(
+    initialValue = "等待加载...",
+    key1 = keyword
+) {
+    value = "加载中..."
+    delay(700)
+    value = "\"$keyword\" 的异步结果"
+}
+```
+
+- `initialValue`：初始值
+- `key1 = keyword`：`keyword` 变化后，内部生产逻辑会按新的 key 重新开始
+- `value = ...`：在 block 里直接更新要暴露给 UI 的状态
+
+
+
+和 `LaunchedEffect` 的区别：
+
+- `LaunchedEffect`：重点是执行一段协程逻辑
+- `produceState`：重点是得到一个给 UI 直接读取的状态结果
+
+```kotlin
+var result by remember { mutableStateOf("等待加载...") }
+
+LaunchedEffect(keyword) {
+    result = "加载中..."
+    delay(700)
+    result = "\"$keyword\" 的结果"
+}
+```
+
+```kotlin
+val result by produceState(
+    initialValue = "等待加载...",
+    key1 = keyword
+) {
+    value = "加载中..."
+    delay(700)
+    value = "\"$keyword\" 的结果"
+}
+```
+
+- 想执行协程逻辑，用 `LaunchedEffect`
+- 想把异步逻辑直接包装成 UI 状态，用 `produceState`
 
 
 
