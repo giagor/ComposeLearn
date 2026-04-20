@@ -627,3 +627,97 @@ fun Demo(showEffect: Boolean) {
 - `LaunchedEffect` 进入组合：它内部的协程启动
 - `LaunchedEffect` 离开组合：它内部的协程取消
 - `LaunchedEffect` 的 key 变化：取消旧协程，按新的 key 重启
+
+## DisposableEffect
+
+核心结论：
+
+- `DisposableEffect` 适合注册资源，并在离开组合或 key 变化时清理资源
+- 它不负责启动协程，重点是 `onDispose`
+
+
+
+什么时候使用：
+
+- 注册监听器
+- 绑定回调
+- 添加观察者
+- 接入需要手动释放的对象
+
+
+
+最小例子：
+
+```kotlin
+DisposableEffect(listenerId) {
+    registerListener(listenerId)
+
+    onDispose {
+        unregisterListener(listenerId)
+    }
+}
+```
+
+- 进入组合：执行注册逻辑
+- key 变化：先清理旧资源，再按新 key 重新注册
+- 离开组合：执行 `onDispose`
+
+
+
+典型场景：
+
+```kotlin
+// 注册监听器
+DisposableEffect(locationManager) {
+    val listener = LocationListener { location ->
+    }
+
+    locationManager.register(listener)
+
+    onDispose {
+        locationManager.unregister(listener)
+    }
+}
+```
+
+```kotlin
+// 绑定回调
+DisposableEffect(player) {
+    val callback = object : PlayerCallback {
+        override fun onPlay() {
+        }
+    }
+
+    player.setCallback(callback)
+
+    onDispose {
+        player.clearCallback()
+    }
+}
+```
+
+```kotlin
+// 添加观察者
+DisposableEffect(lifecycleOwner) {
+    val observer = LifecycleEventObserver { _, event ->
+    }
+
+    lifecycleOwner.lifecycle.addObserver(observer)
+
+    onDispose {
+        lifecycleOwner.lifecycle.removeObserver(observer)
+    }
+}
+```
+
+```kotlin
+// 接入需要手动释放的对象
+DisposableEffect(cameraController) {
+    cameraController.startPreview()
+
+    onDispose {
+        cameraController.stopPreview()
+        cameraController.release()
+    }
+}
+```

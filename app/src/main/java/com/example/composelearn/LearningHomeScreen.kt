@@ -20,20 +20,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.composelearn.coremindset.CoreMindsetLearningScreen
+import com.example.composelearn.sideeffects.SideEffectsLearningScreen
 import com.example.composelearn.statebasics.StateBasicsLearningScreen
 
 private enum class LearningSection(val label: String) {
     Basics("基础入门"),
     Practice("先做小实战"),
     CoreMindset("核心心智"),
-    StateBasics("状态管理基础")
+    StateBasics("状态管理基础"),
+    SideEffects("副作用与异步")
 }
 
 @Composable
 fun LearningHomeScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
-    var currentSection by remember { mutableStateOf(LearningSection.StateBasics) }
+    var currentSection by remember { mutableStateOf(LearningSection.SideEffects) }
 
     Column(
         modifier = Modifier
@@ -50,6 +52,7 @@ fun LearningHomeScreen(
             LearningSection.Practice -> PracticeLearningScreen()
             LearningSection.CoreMindset -> CoreMindsetLearningScreen()
             LearningSection.StateBasics -> StateBasicsLearningScreen()
+            LearningSection.SideEffects -> SideEffectsLearningScreen()
         }
     }
 }
