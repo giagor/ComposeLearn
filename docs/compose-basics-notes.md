@@ -493,3 +493,52 @@ fun StatelessCounter(
 - 组件内部自己管状态时，组件更完整，但复用和测试会更受限
 - 外层统一管理状态时，子组件只负责展示和回调，职责更清晰
 - 这就是状态提升：把状态提到更高一层
+
+## 单向数据流
+
+核心结论：
+
+- 状态从父组件传给子组件
+- 事件由子组件通过回调抛给父组件
+- 单向数据流通常建立在状态提升的基础上
+
+
+
+最小例子：
+
+```kotlin
+@Composable
+fun SearchPage() {
+    var query by remember { mutableStateOf("") }
+    var submitCount by remember { mutableIntStateOf(0) }
+
+    SearchBox(
+        query = query,
+        onQueryChange = { query = it },
+        onSubmit = { submitCount++ }
+    )
+}
+```
+
+```kotlin
+@Composable
+fun SearchBox(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSubmit: () -> Unit
+) {
+    TextField(value = query, onValueChange = onQueryChange)
+    Button(onClick = onSubmit) { Text("提交") }
+}
+```
+
+数据流方向：
+
+- 状态下行：`query` 从父组件传给 `SearchBox`
+- 事件上行：`onQueryChange` / `onSubmit` 从 `SearchBox` 回到父组件
+
+几个好处：
+
+- 状态来源更清晰
+- 组件职责更单一
+- 排查问题和后续扩展更容易

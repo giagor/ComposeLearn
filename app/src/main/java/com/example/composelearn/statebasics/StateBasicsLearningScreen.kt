@@ -21,6 +21,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -32,7 +33,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * 状态管理基础模块入口。
- * 样例：remember + mutableIntStateOf；rememberSaveable；状态提升
+ * 样例：remember + mutableIntStateOf；rememberSaveable；状态提升；单向数据流
  */
 private const val TAG = "StateBasicsLearningScreen"
 @Composable
@@ -47,6 +48,7 @@ fun StateBasicsLearningScreen() {
         item { NoRememberIntStateLesson() }
         item { RememberSaveableLesson() }
         item { StateHoistingLesson() }
+        item { UnidirectionalDataFlowLesson() }
     }
 }
 
@@ -75,7 +77,7 @@ private fun StateBasicsHeader() {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "这一部分先学 remember、mutableIntStateOf、rememberSaveable。",
+                text = "这一部分先学 remember、rememberSaveable、状态提升、单向数据流。",
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -461,6 +463,104 @@ private fun CounterCard(
                 Button(onClick = onReset) {
                     Text("重置")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UnidirectionalDataFlowLesson() {
+    var query by remember { mutableStateOf("") }
+    var submitCount by remember { mutableIntStateOf(0) }
+
+    StateLessonCard(
+        title = "单向数据流",
+        summary = "目标是理解：状态从父组件传给子组件，事件由子组件抛给父组件。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "父组件状态",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("query = \"$query\"")
+                    Text("submitCount = $submitCount")
+                    HorizontalDivider()
+                    SearchBox(
+                        query = query,
+                        onQueryChange = { query = it },
+                        onSubmit = { submitCount++ }
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. query 从父组件传给 SearchBox，这叫状态下行。")
+                    Text("2. 输入和提交事件由 SearchBox 通过回调抛回父组件，这叫事件上行。")
+                    Text("3. 数据流方向固定后，状态来源更清晰，排查问题更容易。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("代码", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+@Composable
+fun SearchBox(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSubmit: () -> Unit
+) {
+    TextField(value = query, onValueChange = onQueryChange)
+    Button(onClick = onSubmit) { Text("提交") }
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchBox(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSubmit: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        TextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("输入关键词") }
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = onSubmit) {
+                Text("提交")
             }
         }
     }
