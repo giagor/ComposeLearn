@@ -35,6 +35,7 @@
 3. **核心心智**
    - 声明式 UI 与重组
    - 渲染三阶段：组合 / 布局 / 绘制
+   - 重组作用域
    - Modifier 执行顺序与包裹模型
 4. **状态管理基础**
    - `mutableStateOf`
@@ -337,6 +338,50 @@ Box(
 ```
 
 `highlight` 变了 -> 相关 Composable 重组 -> UI 还在，大小位置没变，主要是颜色变了 -> 更接近影响绘制。
+
+## 重组作用域
+
+核心结论：
+
+- Compose 里有"重组作用域"这个概念
+- 状态变化时，不一定整个 Composable 都重组
+- Compose 会尽量只重组读取该状态的那块作用域。状态在哪个作用域里被读取，哪个作用域就更可能重组
+- `SideEffect` 是否执行，也取决于它所在作用域是否真的重组
+
+
+
+它是什么：
+
+- 这里的"作用域"不是 Kotlin 变量作用域
+- 这里说的是 Compose 用来决定"哪一块需要重新执行"的边界
+
+
+
+为什么需要它：
+
+- 如果没有这个机制，一个状态变化可能让整页都重新执行
+- Compose 想做的是：只更新真正受影响的部分
+
+
+
+直觉例子：
+
+```kotlin
+@Composable
+fun Screen() {
+    var count by remember { mutableIntStateOf(0) }
+
+    Column {
+        Text("标题")
+        Button(onClick = { count++ }) {
+            Text("count = $count")
+        }
+    }
+}
+```
+
+- `count` 只在按钮里的 `Text` 被读取
+- `count` 变化时，Compose 更倾向于只重组和这块读取相关的范围
 
 ## Modifier 执行顺序 / 包裹模型
 
