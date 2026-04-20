@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,7 @@ fun SideEffectsLearningScreen() {
         item { LaunchedEffectKeyLesson() }
         item { DisposableEffectLesson() }
         item { SnapshotFlowLesson() }
+        item { SideEffectLesson() }
     }
 }
 
@@ -82,7 +84,7 @@ private fun SideEffectsHeader() {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "这一部分先学 LaunchedEffect、DisposableEffect、snapshotFlow：什么时候启动协程，什么时候清理资源，什么时候把状态变化转成 Flow。",
+                text = "这一部分先学 LaunchedEffect、DisposableEffect、snapshotFlow、SideEffect：什么时候启动协程，什么时候清理资源，什么时候把状态变化转成 Flow，什么时候同步给外部对象。",
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -406,6 +408,29 @@ LaunchedEffect(Unit) {
                     Text("2. keyword 变化时会发射新值，其他无关重组不会触发新值。")
                     Text("3. 它常用于把滚动、输入、选择状态转成 Flow 继续处理。")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SideEffectLesson() {
+    var counter: Int by remember { mutableStateOf(0) }
+    SideEffectLessonCard(
+        title = "SideEffect",
+        summary = "目标是理解：每次成功重组后，把最新状态同步给外部对象。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+
+            SideEffect {
+                Log.d(TAG, "SideEffectLesson Counter2: $counter")
+            }
+
+            Column {
+                Button(onClick = { counter++ }) {
+                    Text(text = "Increase count")
+                }
+                Text(text = "Counter value is: $counter")
             }
         }
     }

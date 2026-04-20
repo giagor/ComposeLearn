@@ -815,3 +815,92 @@ LaunchedEffect(Unit) {
 
 - 把 Compose 状态接入 Flow 的处理链
 - 让状态变化可以继续配合 `filter`、`distinctUntilChanged`、`collectLatest` 这类操作符使用
+
+## SideEffect
+
+> 参考：Stack Overflow: [Android Compose side effects: Side-Effect behavior](https://stackoverflow.com/questions/78071347/android-compose-side-effects-side-effect-behavior)
+
+核心结论：
+
+- `SideEffect` 适合在每次成功重组后，把最新状态同步给外部对象
+- 它不是协程 API，也不是资源清理 API
+- 它是否执行，取决于它所在的重组作用域是否真的发生了重组
+
+
+
+什么时候使用：
+
+- 同步 analytics / 埋点 SDK 的当前状态
+- 把最新 Compose 状态同步给旧 View 或外部 holder
+- 做轻量的外部状态桥接
+
+
+
+最小例子：
+
+```kotlin
+SideEffect {
+    analytics.setCurrentScreen(screenName)
+}
+```
+
+- 每次成功重组后，把最新 `screenName` 同步给外部对象
+
+
+
+`Counter2` 例子：
+
+```kotlin
+@Composable
+fun Counter2() {
+    var counter by remember { mutableStateOf(0) }
+
+    SideEffect {
+        Log.d("Test tag", "Counter2: $counter")
+    }
+
+    Column {
+        Button(onClick = { counter++ }) {
+            Text("Increase count is: $counter")
+        }
+    }
+}
+```
+
+点击按钮后，`SideEffect` 可能不会继续执行。原因：
+
+- `counter` 的读取发生在 `Button` 里的 `Text` 那层
+- `Button` 的内容 lambda 会形成更内层作用域
+- 点击按钮后，更内层作用域重组时，外层放着 `SideEffect` 的作用域可能被跳过
+- `SideEffect` 不在那层真正重组的作用域里，所以可能不会执行
+
+
+
+`Counter1` 例子：
+
+```kotlin
+@Composable
+fun Counter1() {
+    var counter by remember { mutableStateOf(0) }
+
+    SideEffect {
+        Log.d("Test tag", "Counter1: $counter")
+    }
+
+    Column {
+        Button(onClick = { counter++ }) {
+            Text("Increase count")
+        }
+        Text("Counter value is: $counter")
+    }
+}
+```
+
+`Counter1`：点击按钮后，`SideEffect` 会继续执行。原因：
+
+- `counter` 被外面的 `Text("Counter value is: $counter")` 读取
+- **那么不是 `Column` 也形成了作用域吗？`Column` 是 `inline` 的，这里的内容会直接使用外围作用域。因为`SideEffect`所在的那个重组作用域真的发生了重组，因此`SideEffect`内部代码会执行**。
+
+
+
+
