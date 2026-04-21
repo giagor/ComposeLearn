@@ -51,8 +51,8 @@
    - `produceState`
 6. **性能与进阶状态**
    - `derivedStateOf`
-   - Stability
    - 为什么会发生不必要重组
+   - Stability
    - 列表性能、延迟加载、避免无效计算
 7. **互操作与工程化**
    - Compose 和 View 混编
@@ -1069,3 +1069,65 @@ fun DerivedThresholdPanel(isPassed: Boolean) {
 
 - 想表达“这是一个派生状态”，用 `derivedStateOf`
 - 只是临时写一行简单判断，不一定需要它
+
+## 为什么会发生不必要重组
+
+核心结论：
+
+- 重组本身不是坏事
+- 真正要关注的是：某块 UI 是否因为"读了太多状态"或"接了太多变化参数"而被频繁卷进去
+- 很多"不必要重组"的根源，是把高频原始状态直接传给了只需要低频结果的子组件
+
+
+
+什么时候容易发生：
+
+- 子组件只需要一个判断结果，但父组件把整个原始状态都传下去了
+- 某个状态变化很频繁，但下游其实只关心一个更粗粒度的结果
+- 状态读取位置太高，导致一大段 UI 都跟这个状态建立了依赖
+
+
+
+最小例子：
+
+```kotlin
+var keyword by remember { mutableStateOf("") }
+val canSubmit by remember {
+    derivedStateOf { keyword.trim().length >= 3 }
+}
+
+RawKeywordPanel(keyword = keyword)
+SubmitButtonHintPanel(canSubmit = canSubmit)
+```
+
+```kotlin
+@Composable
+fun RawKeywordPanel(keyword: String) {
+    Text("keyword.length = ${keyword.length}")
+}
+```
+
+```kotlin
+@Composable
+fun SubmitButtonHintPanel(canSubmit: Boolean) {
+    Text(if (canSubmit) "按钮可以提交" else "按钮暂时不能提交")
+}
+```
+
+- `RawKeywordPanel` 直接依赖 `keyword`，所以每次输入变化都更容易继续参与重组
+- `SubmitButtonHintPanel` 只依赖 `canSubmit`，当 `keyword` 从 `"abc"` 变成 `"abcd"` 时，`canSubmit` 还是 `true`，这部分就更容易被跳过
+
+
+
+怎么判断是不是该优化：
+
+- 先问子组件"真正需要什么"
+- 如果它只需要一个派生结果，就只传这个结果
+- 如果它需要的是高频原始值，那它跟着更新通常就是合理的，不算多余
+
+
+
+一句话记忆：
+
+- 不必要重组，常常不是因为"重组发生了"
+- 而是因为"本来只需要结果，却把整个变化过程都传下去了"

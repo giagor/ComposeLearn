@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -47,6 +48,7 @@ fun AdvancedStateLearningScreen() {
         item { DerivedStateValidationLesson() }
         item { DerivedStateThresholdLesson() }
         item { DerivedStateComparisonLesson() }
+        item { UnnecessaryRecompositionLesson() }
     }
 }
 
@@ -272,6 +274,64 @@ private fun DerivedStateComparisonLesson() {
 }
 
 @Composable
+private fun UnnecessaryRecompositionLesson() {
+    var keyword by remember { mutableStateOf("") }
+    val canSubmit by remember {
+        derivedStateOf { keyword.trim().length >= 3 }
+    }
+
+    AdvancedStateCard(
+        title = "为什么会发生不必要重组",
+        summary = "目标是理解：很多\"看起来没必要\"的重组，根源不是 Compose 太笨，而是我们把高频变化直接传给了下游。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            OutlinedTextField(
+                value = keyword,
+                onValueChange = { keyword = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("输入 3 个字符以上") }
+            )
+
+            Button(onClick = { keyword = "abc" }) {
+                Text("一键填充 abc")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("当前 keyword = \"$keyword\"", fontWeight = FontWeight.Bold)
+                    Text("canSubmit = $canSubmit")
+                    Text("看 Logcat 过滤 tag：$TAG")
+                }
+            }
+
+            RawKeywordPanel(keyword = keyword)
+            SubmitButtonHintPanel(canSubmit = canSubmit)
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. RawKeywordPanel 直接依赖 keyword，所以每次输入都会更容易继续参与重组。")
+                    Text("2. SubmitButtonHintPanel 只依赖 canSubmit；当输入从 \"abc\" 继续改成 \"abcd\" 时，这个结果还是 true，下游就更容易被跳过。")
+                    Text("3. 很多不必要重组，本质上都是把高频原始状态直接传给了只需要低频结果的子组件。")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DirectThresholdPanel(score: Float) {
     val isPassed = score >= 60f
 
@@ -291,6 +351,50 @@ private fun DirectThresholdPanel(score: Float) {
             Text("不使用 derivedStateOf", fontWeight = FontWeight.Bold)
             Text("score 直接传给子组件")
             Text("isPassed = $isPassed")
+        }
+    }
+}
+
+@Composable
+private fun RawKeywordPanel(keyword: String) {
+    Log.d(TAG, "Unnecessary RawKeywordPanel start")
+    SideEffect {
+        Log.d(TAG, "Unnecessary RawKeywordPanel recomposed, keyword=$keyword")
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("直接传原始状态", fontWeight = FontWeight.Bold)
+            Text("子组件直接读取 keyword")
+            Text("keyword.length = ${keyword.length}")
+        }
+    }
+}
+
+@Composable
+private fun SubmitButtonHintPanel(canSubmit: Boolean) {
+    Log.d(TAG, "Unnecessary SubmitButtonHintPanel start")
+    SideEffect {
+        Log.d(TAG, "Unnecessary SubmitButtonHintPanel recomposed, canSubmit=$canSubmit")
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("只传真正需要的结果", fontWeight = FontWeight.Bold)
+            Text("子组件只读取 canSubmit")
+            Text(if (canSubmit) "按钮可以提交" else "按钮暂时不能提交")
         }
     }
 }
