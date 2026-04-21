@@ -1543,3 +1543,38 @@ NavHost(
 ```
 
 route 可以带占位符，比如 `detail/{title}`，详情页再从 `backStackEntry.arguments` 里取参数
+
+## 主题
+
+核心结论：
+
+- 主题不是某个页面随手写颜色，而是全局的设计令牌入口
+- 页面里优先读 `MaterialTheme.colorScheme` 和 `MaterialTheme.typography`
+- 如果某块 UI 需要区别于全局主题，可以局部再包一层 `MaterialTheme`
+- 像 `Text` 这种组件，如果没有手动写 `color = xxx`，通常会走组件内部定义的默认值。组件的默认值是不是从主题（`MaterialTheme`）里取，取决于这个组件源码的实现
+
+
+
+全局主题 与 局部主题 的例子：
+
+```kotlin
+// 获取全局主题的颜色值
+Text(
+    text = "Hello Theme",
+    color = MaterialTheme.colorScheme.primary,
+    style = MaterialTheme.typography.titleMedium
+)
+
+// 局部主题的颜色值
+// 这块子树会优先读你新包进去的这层主题
+MaterialTheme(
+    colorScheme = lightColorScheme(
+        primary = Color(0xFF0F766E)
+    )
+) {
+    Text(
+        text = "局部主题下的文本",
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+```

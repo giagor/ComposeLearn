@@ -20,6 +20,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +59,7 @@ fun InteropLearningScreen() {
         item { ViewModelLesson() }
         item { NavigationLesson() }
         item { NavigationArgumentLesson() }
+        item { ThemeLesson() }
     }
 }
 
@@ -572,6 +574,121 @@ private fun NavigationArgumentSample() {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ThemeLesson() {
+    var useLocalTheme by remember { mutableStateOf(false) }
+
+    InteropCard(
+        title = "主题",
+        summary = "目标是理解：主题不是某个页面随手写颜色，而是全局的设计令牌入口；页面里优先读 MaterialTheme。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Button(onClick = { useLocalTheme = !useLocalTheme }) {
+                Text(if (useLocalTheme) "切回全局主题" else "切到局部覆盖主题")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("当前模式 = ${if (useLocalTheme) "局部覆盖主题" else "全局主题"}", fontWeight = FontWeight.Bold)
+                    Text("重点看同一个卡片，在不同主题下颜色和字体怎么跟着变。")
+                }
+            }
+
+            ThemeTokenCard(title = "全局主题下的卡片")
+
+            if (useLocalTheme) {
+                MaterialTheme(
+                    colorScheme = lightColorScheme(
+                        primary = Color(0xFF0F766E),
+                        onPrimary = Color.White,
+                        surface = Color(0xFFF0FDFA),
+                        onSurface = Color(0xFF134E4A),
+                        surfaceVariant = Color(0xFFCCFBF1),
+                        onSurfaceVariant = Color(0xFF115E59)
+                    )
+                ) {
+                    ThemeTokenCard(title = "局部覆盖主题下的卡片")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. `ComposeLearnTheme` 是全局主题入口，通常包在 App 顶层。")
+                    Text("2. 页面里优先读 `MaterialTheme.colorScheme` 和 `MaterialTheme.typography`。")
+                    Text("3. 如果某一小块 UI 需要不同风格，也可以局部再包一层 `MaterialTheme`。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("最小例子", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+ComposeLearnTheme {
+    MaterialTheme(
+        colorScheme = MaterialTheme.colorScheme,
+        typography = MaterialTheme.typography
+    ) {
+        Text(
+            text = "Hello Theme",
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.titleMedium
+        )
+    }
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeTokenCard(title: String) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "这里没有手写具体颜色，而是直接读 MaterialTheme token。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
