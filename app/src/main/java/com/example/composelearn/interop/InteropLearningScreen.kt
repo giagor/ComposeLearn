@@ -3,6 +3,8 @@ package com.example.composelearn.interop
 import android.content.Intent
 import android.util.Log
 import android.widget.TextView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,6 +47,7 @@ fun InteropLearningScreen() {
         item { InteropHeader() }
         item { AndroidViewLesson() }
         item { ComposeViewLesson() }
+        item { ViewModelLesson() }
     }
 }
 
@@ -240,6 +243,113 @@ setContentView(R.layout.activity_compose_view_host)
 val composeView = findViewById<ComposeView>(R.id.composeViewHost)
 composeView.setContent {
     Text("Hello from ComposeView")
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+class CounterViewModel : ViewModel() {
+    var count by mutableIntStateOf(0)
+        private set
+
+    var label by mutableStateOf("from ViewModel")
+        private set
+
+    fun addCount() {
+        count++
+    }
+
+    fun toggleLabel() {
+        label = if (label == "from ViewModel") {
+            "updated by ViewModel"
+        } else {
+            "from ViewModel"
+        }
+    }
+}
+
+@Composable
+private fun ViewModelLesson(
+    counterViewModel: CounterViewModel = viewModel()
+) {
+//    val count = counterViewModel.count
+    val count = remember { counterViewModel.count }
+    val label = counterViewModel.label
+
+    InteropCard(
+        title = "ViewModel 配合",
+        summary = "目标是理解：页面负责展示状态和分发事件，状态本身可以放进 ViewModel，而不是全塞在 Composable 里。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Button(onClick = counterViewModel::addCount) {
+                Text("count + 1")
+            }
+
+            Button(onClick = counterViewModel::toggleLabel) {
+                Text("切换文案")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("当前 count = $count", fontWeight = FontWeight.Bold)
+                    Text("当前 label = $label")
+                    Text("这两个状态都来自 ViewModel。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. Composable 不直接持有业务状态，只读取 ViewModel 暴露出来的数据。")
+                    Text("2. 按钮点击时，不是直接改本地 state，而是调用 ViewModel 方法。")
+                    Text("3. 页面职责会更清楚：UI 负责展示，ViewModel 负责状态。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("最小例子", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+class CounterViewModel : ViewModel() {
+    var count by mutableIntStateOf(0)
+        private set
+
+    fun addCount() {
+        count++
+    }
+}
+
+@Composable
+fun CounterScreen(
+    viewModel: CounterViewModel = viewModel()
+) {
+    Text("count = ${'$'}{viewModel.count}")
+    Button(onClick = viewModel::addCount) {
+        Text("count + 1")
+    }
 }
                         """.trimIndent()
                     )

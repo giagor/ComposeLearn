@@ -1419,3 +1419,62 @@ composeView.setContent {
 - 然后在 `Activity` / `Fragment` 里找到它，再调用 `setContent { ... }`
 - 关键点：这和 `AndroidView` 是反方向，`AndroidView` 是 Compose 包 View，`ComposeView` 是 View 包 Compose
 
+## ViewModel 配合
+
+核心结论：
+
+- Composable 负责展示状态和分发事件
+- `ViewModel` 负责持有页面状态
+- 页面状态不一定都写在 Composable 里，真实页面更常见的是放进 `ViewModel`
+
+
+
+最小例子：
+
+```kotlin
+class CounterViewModel : ViewModel() {
+    var count by mutableIntStateOf(0)
+        private set
+
+    fun addCount() {
+        count++
+    }
+}
+
+@Composable
+fun CounterScreen(
+    viewModel: CounterViewModel = viewModel()
+) {
+    Text("count = ${viewModel.count}")
+    Button(onClick = viewModel::addCount) {
+        Text("count + 1")
+    }
+}
+```
+
+- `viewModel()`：拿当前作用域里的 `CounterViewModel`
+- `Text("count = ${viewModel.count}")`：页面直接读 `ViewModel` 里的状态
+- `Button(onClick = viewModel::addCount)`：事件交给 `ViewModel`
+
+
+
+为什么这里不用 `remember`：
+
+- `viewModel()` 不会因为重组就反复创建新的 `ViewModel`
+- `count`、`label` 也不用 `remember`，因为它们不是 Composable 自己创建的本地状态，只是从 `ViewModel` 里读出来的当前值
+
+
+
+`viewModel()` 在做什么：
+
+- 先看当前 `ViewModelStoreOwner` 是谁
+- 再按类型去找对应的 `ViewModel`
+- 有就复用，没有才创建
+
+
+
+`ViewModelStoreOwner` 一般是谁：
+
+- 在 `Activity.setContent {}` 里，默认更接近当前 `Activity`
+- 在 `Fragment` 里的 Compose UI 里，默认更接近当前 `Fragment`
+- 想共享同一份 `ViewModel`，关键不是“都叫同一个类名”，而是“是不是用了同一个 owner”
