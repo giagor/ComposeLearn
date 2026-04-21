@@ -60,6 +60,7 @@ fun InteropLearningScreen() {
         item { NavigationLesson() }
         item { NavigationArgumentLesson() }
         item { ThemeLesson() }
+        item { ArchitectureLesson() }
     }
 }
 
@@ -689,6 +690,131 @@ private fun ThemeTokenCard(title: String) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+data class ProfileUiState(
+    val name: String = "Compose Learner",
+    val level: String = "Beginner",
+    val bio: String = "状态来自 ViewModel，数据来自 Repository。"
+)
+
+private class FakeProfileRepository {
+    fun loadProfile(): ProfileUiState {
+        return ProfileUiState(
+            name = "Compose Learner",
+            level = "Intermediate",
+            bio = "这是一个分层架构示例：UI 不直接拼数据来源。"
+        )
+    }
+}
+
+class ProfileViewModel : ViewModel() {
+    private val repository = FakeProfileRepository()
+
+    var uiState by mutableStateOf(ProfileUiState())
+        private set
+
+    fun loadProfile() {
+        uiState = repository.loadProfile()
+    }
+}
+
+@Composable
+private fun ArchitectureLesson(
+    profileViewModel: ProfileViewModel = viewModel()
+) {
+    val uiState = profileViewModel.uiState
+
+    InteropCard(
+        title = "分层架构",
+        summary = "目标是理解：页面负责展示，ViewModel 负责组织状态，Repository 负责提供数据。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Button(onClick = profileViewModel::loadProfile) {
+                Text("加载资料")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("UI 层只读 uiState。", fontWeight = FontWeight.Bold)
+                    Text("按钮点击 -> ViewModel.loadProfile() -> Repository.loadProfile()")
+                }
+            }
+
+            ProfileCard(uiState = uiState)
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. 页面不直接 new 数据，也不直接写取数逻辑。")
+                    Text("2. ViewModel 把 Repository 返回的数据整理成 uiState。")
+                    Text("3. UI 只关心当前 uiState 长什么样。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("最小例子", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+class ProfileViewModel : ViewModel() {
+    private val repository = ProfileRepository()
+
+    var uiState by mutableStateOf(ProfileUiState())
+        private set
+
+    fun loadProfile() {
+        uiState = repository.loadProfile()
+    }
+}
+
+@Composable
+fun ProfileScreen(
+    viewModel: ProfileViewModel = viewModel()
+) {
+    ProfileCard(uiState = viewModel.uiState)
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileCard(uiState: ProfileUiState) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(uiState.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("level = ${uiState.level}")
+            Text(uiState.bio, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

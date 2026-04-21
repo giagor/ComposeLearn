@@ -1578,3 +1578,68 @@ MaterialTheme(
     )
 }
 ```
+
+## 分层架构
+
+核心结论：
+
+- 页面负责展示 `uiState`
+- `ViewModel` 负责组织和持有 `uiState`
+- Repository 负责提供数据
+
+
+
+最小例子：
+
+```kotlin
+data class ProfileUiState(
+    val name: String = "",
+    val level: String = "",
+    val bio: String = ""
+)
+
+class ProfileRepository {
+    fun loadProfile(): ProfileUiState {
+        return ProfileUiState(
+            name = "Compose Learner",
+            level = "Intermediate",
+            bio = "data from repository"
+        )
+    }
+}
+
+class ProfileViewModel : ViewModel() {
+    private val repository = ProfileRepository()
+
+    var uiState by mutableStateOf(ProfileUiState())
+        private set
+
+    fun loadProfile() {
+        uiState = repository.loadProfile()
+    }
+}
+
+@Composable
+fun ProfileScreen(
+    viewModel: ProfileViewModel = viewModel()
+) {
+    Column {
+        Button(onClick = viewModel::loadProfile) {
+            Text("加载资料")
+        }
+
+        ProfileCard(uiState = viewModel.uiState)
+    }
+}
+```
+
+- `ProfileScreen`：只负责展示 `uiState`
+- `ProfileViewModel`：负责调用 Repository，并更新 `uiState`
+- `ProfileRepository`：负责提供数据
+
+
+
+先记住：
+
+- 不要把页面展示、状态组织、数据来源全揉在一个 Composable 里
+- UI 层越只关心 `uiState`，页面通常越清楚
