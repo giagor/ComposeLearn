@@ -1131,3 +1131,75 @@ fun SubmitButtonHintPanel(canSubmit: Boolean) {
 
 - 不必要重组，常常不是因为"重组发生了"
 - 而是因为"本来只需要结果，却把整个变化过程都传下去了"
+
+## Stability
+
+核心结论：
+
+- `Stability` 影响的重点，不是"父层会不会重组"
+- 它更影响的是：父层重组后，子调用能不能更放心地被 `skip`
+- 参数越稳定，Compose 越敢跳过
+- 参数越不稳定，Compose 越保守
+
+
+
+先记一个流程：
+
+- 状态变化
+- 父作用域可能进入重组
+- Compose 走到子 Composable 调用点
+- 判断这次能不能 `skip`
+- 能跳过就不执行子函数体，不能跳过才继续执行
+
+
+
+什么叫 immutable：
+
+- 更偏向"对象本身不会变"，它是一种较强的约束
+- 数据变化时，通常是创建新对象，而不是改旧对象
+- 例子：`data class xxx(val xx: String)` 接近 immutable，`data class xx(val xx: MutableList<String>)` 不是典型的 immutable，因为里面内容还是可能被改
+
+
+
+什么叫 stable：
+
+- 不是"永远不会变"，更像是"如果它变了，Compose 能可靠地知道；如果它没变，Compose 可以更放心地跳过"
+- 例子：`mutableStateOf(0)` 值会变，但变化对 Compose 可追踪，所以它可以是 stable
+
+
+
+两者区别：
+
+- `immutable` 关注的是对象内容是否变化
+- `stable` 关注的是这类对象对 Compose 来说是不是可预测。有些东西会变，但依然可以对 Compose 友好，比如 `State<T>`
+
+
+
+什么时候会更保守：
+
+- Compose 最怕"误跳过"，如果一个子调用本来该更新，却被错误 `skip`，UI 就可能不对，所以当 Compose 不够放心时，会选择继续执行，而不是冒险跳过
+- 直接表现就是：更少 `skip`，更容易继续执行子调用
+
+
+
+常见更友好的参数：
+
+- `Int`
+- `String`
+- `Boolean`
+- 简单的 `data class(val ...)`
+
+
+
+常见要小心的参数：
+
+- 带 `var` 的普通对象
+- 可变对象
+- `List`
+- Compose 不容易确认语义的复杂类型
+
+
+
+为什么 `List` 要小心：
+
+- `List` 是容器，不只是一个简单值。比如 列表里面的元素稳不稳定、列表背后是不是可变集合。它通常会比基础类型更容易让 Compose 保守

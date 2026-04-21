@@ -23,6 +23,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,6 +50,8 @@ fun AdvancedStateLearningScreen() {
         item { DerivedStateThresholdLesson() }
         item { DerivedStateComparisonLesson() }
         item { UnnecessaryRecompositionLesson() }
+        item { StabilityLesson() }
+        item { OptimizationExamplesLesson() }
     }
 }
 
@@ -332,12 +335,126 @@ private fun UnnecessaryRecompositionLesson() {
 }
 
 @Composable
+private fun StabilityLesson() {
+    var count by remember { mutableIntStateOf(0) }
+    var unrelatedTick by remember { mutableIntStateOf(0) }
+
+    val stableState = StableCounterUiState(
+        title = "稳定参数",
+        count = count
+    )
+    val unstableState = UnstableCounterUiState(
+        title = "不稳定参数",
+        count = count
+    )
+
+    AdvancedStateCard(
+        title = "Stability",
+        summary = "目标是理解：Compose 会根据参数是否稳定，决定某个子组件在父组件重组时能不能更放心地跳过。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("当前 count = $count", fontWeight = FontWeight.Bold)
+                    Text("当前 unrelatedTick = $unrelatedTick")
+                    Text("先多点几次\"只改 unrelatedTick\"，再看 Logcat 过滤 tag：$TAG")
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = { unrelatedTick++ }) {
+                    Text("只改 unrelatedTick")
+                }
+                Button(onClick = { count++ }) {
+                    Text("修改 count")
+                }
+            }
+
+            StabilityPanelsHost(
+                unrelatedTick = unrelatedTick,
+                stableState = stableState,
+                unstableState = unstableState
+            )
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. 点\"只改 unrelatedTick\" 时，父组件会重组，但 count 没变。")
+                    Text("2. StableCounterPanel 的参数是不可变 data class，更容易在参数等价时被跳过。")
+                    Text("3. UnstableCounterPanel 的参数是可变 class，Compose 更难放心跳过它，所以更容易继续参与重组。")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OptimizationExamplesLesson() {
+    var count by remember { mutableIntStateOf(0) }
+
+    AdvancedStateCard(
+        title = "优化例子：把状态读取放低",
+        summary = "目标是理解：优化很多时候不是少写代码，而是让真正读取状态的范围更小。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Button(onClick = { count++ }) {
+                Text("count + 1")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("当前 count = $count", fontWeight = FontWeight.Bold)
+                    Text("看 Logcat 过滤 tag：$TAG")
+                    Text("重点看 [Optimization] 开头的日志")
+                }
+            }
+
+            HighReadScopeExample(count = count)
+            LowReadScopeExample(count = count)
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. HighReadScopeColumn 在较高层直接读取 count，所以整块更容易一起继续参与重组。")
+                    Text("2. LowReadScopeExample 把 count 的读取压到更小的子作用域里，静态说明块更容易被跳过。")
+                    Text("3. 很多优化的第一步，不是立刻上高级技巧，而是先缩小状态读取范围。")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DirectThresholdPanel(score: Float) {
     val isPassed = score >= 60f
 
-    Log.d(TAG, "DirectThresholdPanel1 start")
+    Log.d(TAG, "[derivedStateOf] DirectThresholdPanel1 start")
     SideEffect {
-        Log.d(TAG, "DirectThresholdPanel1 recomposed, score=$score, isPassed=$isPassed")
+        Log.d(TAG, "[derivedStateOf] DirectThresholdPanel1 recomposed, score=$score, isPassed=$isPassed")
     }
 
     Surface(
@@ -357,9 +474,9 @@ private fun DirectThresholdPanel(score: Float) {
 
 @Composable
 private fun RawKeywordPanel(keyword: String) {
-    Log.d(TAG, "Unnecessary RawKeywordPanel start")
+    Log.d(TAG, "[UnnecessaryRecomposition] RawKeywordPanel start")
     SideEffect {
-        Log.d(TAG, "Unnecessary RawKeywordPanel recomposed, keyword=$keyword")
+        Log.d(TAG, "[UnnecessaryRecomposition] RawKeywordPanel recomposed, keyword=$keyword")
     }
 
     Surface(
@@ -377,11 +494,178 @@ private fun RawKeywordPanel(keyword: String) {
     }
 }
 
+private data class StableCounterUiState(
+    val title: String,
+    val count: Int
+)
+
+private class UnstableCounterUiState(
+    var title: String,
+    var count: Int
+)
+
+@Composable
+private fun StabilityPanelsHost(
+    unrelatedTick: Int,
+    stableState: StableCounterUiState,
+    unstableState: UnstableCounterUiState
+) {
+    Log.d(TAG, "[Stability] StabilityPanelsHost start")
+    SideEffect {
+        Log.d(TAG, "[Stability] StabilityPanelsHost recomposed, unrelatedTick=$unrelatedTick")
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        StableCounterPanel(state = stableState)
+        UnstableCounterPanel(state = unstableState)
+    }
+}
+
+@Composable
+private fun StableCounterPanel(state: StableCounterUiState) {
+    Log.d(TAG, "[Stability] StableCounterPanel start")
+    SideEffect {
+        Log.d(TAG, "[Stability] StableCounterPanel recomposed, title=${state.title}, count=${state.count}")
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("StableCounterPanel", fontWeight = FontWeight.Bold)
+            Text("${state.title} = ${state.count}")
+            Text("data class + val 字段")
+        }
+    }
+}
+
+@Composable
+private fun HighReadScopeExample(count: Int) {
+    Log.d(TAG, "[Optimization] HighReadScopeExample start")
+    SideEffect {
+        Log.d(TAG, "[Optimization] HighReadScopeExample recomposed, count=$count")
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.errorContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            HighReadScopeColumn(count = count)
+        }
+    }
+}
+
+@Composable
+private fun HighReadScopeColumn(count: Int) {
+    Log.d(TAG, "[Optimization] HighReadScopeColumn start")
+    SideEffect {
+        Log.d(TAG, "[Optimization] HighReadScopeColumn recomposed, count=$count")
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("高层读取状态", fontWeight = FontWeight.Bold)
+        Text("count = $count")
+        StaticHintCard(
+            title = "静态说明块",
+            description = "这个说明块和 count 无关，但因为放在读取 count 的同一作用域里，会跟着这层一起重新执行。"
+        )
+    }
+}
+
+@Composable
+private fun LowReadScopeExample(count: Int) {
+    Log.d(TAG, "[Optimization] LowReadScopeExample start")
+    SideEffect {
+        Log.d(TAG, "[Optimization] LowReadScopeExample recomposed, count=$count")
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("低层读取状态", fontWeight = FontWeight.Bold)
+            LowReadScopeCounterText(count = count)
+            StaticHintCard(
+                title = "静态说明块",
+                description = "这个说明块不读取 count；当 count 只在更小的子作用域里被消费时，它更容易被跳过。"
+            )
+        }
+    }
+}
+
+@Composable
+private fun LowReadScopeCounterText(count: Int) {
+    Log.d(TAG, "[Optimization] LowReadScopeCounterText start")
+    SideEffect {
+        Log.d(TAG, "[Optimization] LowReadScopeCounterText recomposed, count=$count")
+    }
+
+    Text("count = $count")
+}
+
+@Composable
+private fun StaticHintCard(
+    title: String,
+    description: String
+) {
+    Log.d(TAG, "[Optimization] StaticHintCard start, title=$title")
+    SideEffect {
+        Log.d(TAG, "[Optimization] StaticHintCard recomposed, title=$title")
+    }
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.background.copy(alpha = 0.6f)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(title, fontWeight = FontWeight.Bold)
+            Text(description)
+        }
+    }
+}
+
+@Composable
+private fun UnstableCounterPanel(state: UnstableCounterUiState) {
+    Log.d(TAG, "[Stability] UnstableCounterPanel start")
+    SideEffect {
+        Log.d(TAG, "[Stability] UnstableCounterPanel recomposed, title=${state.title}, count=${state.count}")
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("UnstableCounterPanel", fontWeight = FontWeight.Bold)
+            Text("${state.title} = ${state.count}")
+            Text("普通 class + var 字段")
+        }
+    }
+}
+
 @Composable
 private fun SubmitButtonHintPanel(canSubmit: Boolean) {
-    Log.d(TAG, "Unnecessary SubmitButtonHintPanel start")
+    Log.d(TAG, "[UnnecessaryRecomposition] SubmitButtonHintPanel start")
     SideEffect {
-        Log.d(TAG, "Unnecessary SubmitButtonHintPanel recomposed, canSubmit=$canSubmit")
+        Log.d(TAG, "[UnnecessaryRecomposition] SubmitButtonHintPanel recomposed, canSubmit=$canSubmit")
     }
 
     Surface(
@@ -401,9 +685,9 @@ private fun SubmitButtonHintPanel(canSubmit: Boolean) {
 
 @Composable
 private fun DerivedThresholdPanel(isPassed: Boolean) {
-    Log.d(TAG, "DerivedThresholdPanel2 start")
+    Log.d(TAG, "[derivedStateOf] DerivedThresholdPanel2 start")
     SideEffect {
-        Log.d(TAG, "DerivedThresholdPanel2 recomposed, isPassed=$isPassed")
+        Log.d(TAG, "[derivedStateOf] DerivedThresholdPanel2 recomposed, isPassed=$isPassed")
     }
 
     Surface(
