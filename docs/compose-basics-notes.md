@@ -1162,6 +1162,9 @@ fun SubmitButtonHintPanel(canSubmit: Boolean) {
 
 ## Stability
 
+> 官方文档：[Stability in Compose](https://developer.android.com/develop/ui/compose/performance/stability)
+>
+
 核心结论：
 
 - `Stability` 影响的重点，不是"父层会不会重组"
