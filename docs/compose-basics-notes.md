@@ -478,6 +478,19 @@ fun Counter(trigger: Int) {
 
 - 不加 `remember`：如果 Composable 因为重组重新执行到这行代码，就会重新创建一份新的 `mutableIntStateOf(0)`
 
+
+
+`remember` 加 key：
+
+```kotlin
+val result = remember(keyword) { createSomething(keyword) }
+```
+
+- 作用：key 不变时复用上次对象，key 变化时重新创建
+- 什么时候传：当你希望 remembered 对象在某些输入变化时整体重建
+- 这里的 key 不是“参与计算”本身，而是“决定要不要重建这份 remembered 对象”
+- **Key 可以是普通的数据类型，也可以是 `compose state`。`remember(key)` 不是靠"订阅这个 key 的变化"工作的，而是靠"这次 Composable 又执行到这里时，顺手比较一下新旧 key"，从而决定是否重建**。
+
 ## rememberSaveable
 
 核心写法：
@@ -1062,6 +1075,23 @@ fun DerivedThresholdPanel(isPassed: Boolean) {
 - 不用 `derivedStateOf` 时，下游直接依赖 `score`，`score` 每次变化都更容易触发下游继续参与重组
 - 用了 `derivedStateOf` 后，下游只依赖 `isPassed`；当结果一直是 `true` 时，那部分更容易被跳过
 - 这就是它可能带来的性能收益：当底层状态频繁变化、派生结果没变时，能减少下游对高频原始状态的无意义响应
+
+
+
+`derivedStateOf`与`remember` 一起用时（`keyword`是`compose state`）：
+
+```kotlin
+var keyword by remember { mutableStateOf("") }
+val filteredLessons by remember {
+    derivedStateOf {
+        allLessons.filter { it.contains(keyword, ignoreCase = true) }
+    }
+}
+```
+
+- 这里通常不一定要写 `remember(keyword)`，**因为 `derivedStateOf` 会追踪它在 `block` 里读取到的 `Compose state`**，比如这里的 `keyword`
+- `remember(keyword)` 更像是“keyword 一变，连派生状态对象也一起重建”
+- **注意：如果`allLessons`是普通的`List`，那么它的引用变化或者内部元素数量发生变化，derivedStateOf不会重计算。当`allLessons`是`compose state`，例如`mutableStateListOf`时，它的引用发生变化，或者内部元素数量发生变化，此时会引起derivedStateOf的重计算**。
 
 
 
