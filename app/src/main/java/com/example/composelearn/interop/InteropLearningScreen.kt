@@ -276,8 +276,7 @@ class CounterViewModel : ViewModel() {
 private fun ViewModelLesson(
     counterViewModel: CounterViewModel = viewModel()
 ) {
-//    val count = counterViewModel.count
-    val count = remember { counterViewModel.count }
+    val count = counterViewModel.count
     val label = counterViewModel.label
 
     InteropCard(
