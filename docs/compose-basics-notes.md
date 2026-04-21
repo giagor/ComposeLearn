@@ -56,7 +56,7 @@
    - 列表延迟加载、避免无效计算
 7. **互操作与工程化**
    - Compose 和 View 混编
-   - 导航、主题、分层架构、ViewModel 配合
+   - ViewModel 配合、导航、主题、分层架构
 8. **底层原理与高阶能力**
    - Slot Table
    - Gap Buffer
@@ -1418,5 +1418,4 @@ composeView.setContent {
 - 更常见的场景是：XML 里先放一个 `ComposeView`
 - 然后在 `Activity` / `Fragment` 里找到它，再调用 `setContent { ... }`
 - 关键点：这和 `AndroidView` 是反方向，`AndroidView` 是 Compose 包 View，`ComposeView` 是 View 包 Compose
-
 
