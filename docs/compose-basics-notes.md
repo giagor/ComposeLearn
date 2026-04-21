@@ -53,11 +53,11 @@
    - `derivedStateOf`
    - 为什么会发生不必要重组
    - Stability
-   - 列表性能、延迟加载、避免无效计算
+   - 列表延迟加载、避免无效计算
 7. **互操作与工程化**
    - Compose 和 View 混编
-   - `ComposeView`
    - `AndroidView`
+   - `ComposeView`
    - 导航、主题、分层架构、ViewModel 配合
 8. **底层原理与高阶能力**
    - Slot Table
