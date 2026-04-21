@@ -34,6 +34,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 private const val TAG = "InteropLearningScreen"
 
@@ -48,6 +56,8 @@ fun InteropLearningScreen() {
         item { AndroidViewLesson() }
         item { ComposeViewLesson() }
         item { ViewModelLesson() }
+        item { NavigationLesson() }
+        item { NavigationArgumentLesson() }
     }
 }
 
@@ -352,6 +362,214 @@ fun CounterScreen(
 }
                         """.trimIndent()
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavigationLesson() {
+    InteropCard(
+        title = "导航",
+        summary = "目标是理解：Compose 导航最小可用结构通常是 NavController + NavHost + composable(route)。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("下面是一个最小两页导航示例。", fontWeight = FontWeight.Bold)
+                    Text("首页点击按钮跳到详情页，详情页点击按钮返回。")
+                }
+            }
+
+            NavigationSample()
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. `rememberNavController()`：拿到导航控制器。")
+                    Text("2. `NavHost(...)`：声明导航图和起始页面。")
+                    Text("3. `composable(\"route\")`：声明每个路由对应的页面。")
+                    Text("4. `navController.navigate(...)` 跳转，`popBackStack()` 返回。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("最小例子", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+val navController = rememberNavController()
+
+NavHost(
+    navController = navController,
+    startDestination = "home"
+) {
+    composable("home") { HomeScreen(...) }
+    composable("detail") { DetailScreen(...) }
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavigationSample() {
+    val navController = rememberNavController()
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            modifier = Modifier.padding(14.dp)
+        ) {
+            composable("home") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("HomeScreen", fontWeight = FontWeight.Bold)
+                    Text("当前页面：home")
+                    Button(onClick = { navController.navigate("detail") }) {
+                        Text("跳到 detail")
+                    }
+                }
+            }
+
+            composable("detail") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("DetailScreen", fontWeight = FontWeight.Bold)
+                    Text("当前页面：detail")
+                    Button(onClick = { navController.popBackStack() }) {
+                        Text("返回")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavigationArgumentLesson() {
+    InteropCard(
+        title = "导航：带参数跳转",
+        summary = "目标是理解：导航不只是切页面，也可以把简单参数一起带过去。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("下面示例会把 title 从 home 带到 detail。", fontWeight = FontWeight.Bold)
+                    Text("重点看 route 拼接、navArgument 和 backStackEntry.arguments。")
+                }
+            }
+
+            NavigationArgumentSample()
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. route 可以带占位符，比如 `detail/{title}`。")
+                    Text("2. `navigate(\"detail/Compose\")` 是把真实参数拼进 route。")
+                    Text("3. 详情页里再从 `backStackEntry.arguments` 读出来。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("最小例子", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+composable(
+    route = "detail/{title}",
+    arguments = listOf(
+        navArgument("title") { type = NavType.StringType }
+    )
+) { backStackEntry ->
+    val title = backStackEntry.arguments?.getString("title").orEmpty()
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavigationArgumentSample() {
+    val navController = rememberNavController()
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            modifier = Modifier.padding(14.dp)
+        ) {
+            composable("home") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("HomeScreen", fontWeight = FontWeight.Bold)
+                    Button(onClick = { navController.navigate("detail/Compose") }) {
+                        Text("跳到 detail/Compose")
+                    }
+                }
+            }
+
+            composable(
+                route = "detail/{title}",
+                arguments = listOf(
+                    navArgument("title") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val title = backStackEntry.arguments?.getString("title").orEmpty()
+
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("DetailScreen", fontWeight = FontWeight.Bold)
+                    Text("接收到的 title = $title")
+                    Button(onClick = { navController.popBackStack() }) {
+                        Text("返回")
+                    }
                 }
             }
         }

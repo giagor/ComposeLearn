@@ -1478,3 +1478,68 @@ fun CounterScreen(
 - 在 `Activity.setContent {}` 里，默认更接近当前 `Activity`
 - 在 `Fragment` 里的 Compose UI 里，默认更接近当前 `Fragment`
 - 想共享同一份 `ViewModel`，关键不是“都叫同一个类名”，而是“是不是用了同一个 owner”
+
+## 导航
+
+核心结论：
+
+- Compose 导航最小可用结构通常是 `NavController` + `NavHost` + `composable(route)`
+- `navigate(...)` 负责跳转
+- `popBackStack()` 负责返回
+
+
+
+页面导航 例子：
+
+```kotlin
+val navController = rememberNavController()
+
+NavHost(
+    navController = navController,
+    startDestination = "home"
+) {
+    composable("home") {
+        Button(onClick = { navController.navigate("detail") }) {
+            Text("跳到 detail")
+        }
+    }
+
+    composable("detail") {
+        Button(onClick = { navController.popBackStack() }) {
+            Text("返回")
+        }
+    }
+}
+```
+
+
+
+带参数的导航：
+
+```kotlin
+val navController = rememberNavController()
+
+NavHost(
+    navController = navController,
+    startDestination = "home"
+) {
+    composable("home") {
+        Button(onClick = { navController.navigate("detail/Compose") }) {
+            Text("跳到 detail/Compose")
+        }
+    }
+
+    composable(
+        route = "detail/{title}",
+        arguments = listOf(
+            navArgument("title") { type = NavType.StringType }
+        )
+    ) { backStackEntry ->
+        val title = backStackEntry.arguments?.getString("title").orEmpty()
+
+        Text("title = $title")
+    }
+}
+```
+
+route 可以带占位符，比如 `detail/{title}`，详情页再从 `backStackEntry.arguments` 里取参数
