@@ -1233,3 +1233,137 @@ fun SubmitButtonHintPanel(canSubmit: Boolean) {
 为什么 `List` 要小心：
 
 - `List` 是容器，不只是一个简单值。比如 列表里面的元素稳不稳定、列表背后是不是可变集合。它通常会比基础类型更容易让 Compose 保守
+
+## 列表与性能
+
+### LazyColumn 延迟加载
+
+核心结论：
+
+- `LazyColumn` 不会一上来把所有 item 都组合出来
+- 它会优先处理当前可见区域附近的内容
+- 继续滚动时，新的 item 才会陆续进入组合
+
+
+
+最小例子：
+
+```kotlin
+LazyColumn {
+    items(lessons) { lesson ->
+        LessonRow(lesson)
+    }
+}
+```
+
+- 这里的 `items(...)` 是批量声明列表项
+- 首次进入页面时，通常不会一次把整份列表都组合完
+- 这就是 `LazyColumn` 的核心价值：按需组合
+
+
+
+### key 的作用
+
+核心结论：
+
+- `key` 用来告诉 Compose“这一项是谁”，让  item 内部状态会不会错位
+- 列表发生插入、删除、移动时，Compose 更容易把新旧 item 对上
+
+
+
+最小例子：
+
+```kotlin
+LazyColumn {
+    items(
+        items = messages,
+        key = { it.id }
+    ) { message ->
+        MessageRow(message)
+    }
+}
+```
+
+- `items = messages`：数据源
+- `key = { it.id }`：每一项的稳定标识
+- 最后这个 lambda：每一项长什么样
+
+
+
+什么时候需要写 key：
+
+- 列表项有稳定 id
+- 列表会插入、删除、移动、排序
+- item 内部有 `remember` 状态、输入框状态、展开收起状态
+
+
+
+### 避免无效计算
+
+核心结论：
+
+- 列表性能问题，不只是“有没有重组”
+- 更常见的是：一重组，就顺手把过滤、排序、映射这类计算白算一遍
+- 列表越大、计算越重，这类无效计算越值得避免
+
+
+
+对比：
+
+```kotlin
+@Composable
+private fun AvoidWastefulCalculationLesson() {
+    var keyword by remember { mutableStateOf("") }
+    var unrelatedTick by remember { mutableIntStateOf(0) }
+
+    val allLessons = remember {
+        List(50) { index -> "Compose Topic ${index + 1}" }
+    }
+
+    val filteredLessons by remember(keyword) {
+        derivedStateOf {
+            allLessons.filter { it.contains(keyword, ignoreCase = true) }
+        }
+    }
+
+    DirectFilterPanel(
+        keyword = keyword,
+        unrelatedTick = unrelatedTick,
+        allLessons = allLessons
+    )
+
+    DerivedFilterPanel(
+        keyword = keyword,
+        unrelatedTick = unrelatedTick,
+        filteredLessons = filteredLessons
+    )
+}
+```
+
+```kotlin
+@Composable
+private fun DirectFilterPanel(
+    keyword: String,
+    unrelatedTick: Int,
+    allLessons: List<String>
+) {
+    val directFiltered = allLessons.filter {
+        it.contains(keyword, ignoreCase = true)
+    }
+
+    Text("结果数 = ${directFiltered.size}, unrelatedTick = $unrelatedTick")
+}
+```
+
+```kotlin
+@Composable
+private fun DerivedFilterPanel(
+    keyword: String,
+    unrelatedTick: Int,
+    filteredLessons: List<String>
+) {
+    Text("结果数 = ${filteredLessons.size}, unrelatedTick = $unrelatedTick")
+}
+```
+
+假如在 `AvoidWastefulCalculationLesson` 里有个按钮点击让 `unrelatedTick++`，`DirectFilterPanel`、`DerivedFilterPanel` 因为入参都有`unrelatedTick`，所以都会发生重组。区别在于`DirectFilterPanel` 会重新计算一次 `allLessons.filter`，而`DerivedFilterPanel` 因为`keyword`未发生变化，`derivedStateOf`让它无需重新计算一次 `allLessons.filter`，**从而避免无效计算**。
