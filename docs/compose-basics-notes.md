@@ -56,8 +56,6 @@
    - 列表延迟加载、避免无效计算
 7. **互操作与工程化**
    - Compose 和 View 混编
-   - `AndroidView`
-   - `ComposeView`
    - 导航、主题、分层架构、ViewModel 配合
 8. **底层原理与高阶能力**
    - Slot Table
@@ -1367,3 +1365,58 @@ private fun DerivedFilterPanel(
 ```
 
 假如在 `AvoidWastefulCalculationLesson` 里有个按钮点击让 `unrelatedTick++`，`DirectFilterPanel`、`DerivedFilterPanel` 因为入参都有`unrelatedTick`，所以都会发生重组。区别在于`DirectFilterPanel` 会重新计算一次 `allLessons.filter`，而`DerivedFilterPanel` 因为`keyword`未发生变化，`derivedStateOf`让它无需重新计算一次 `allLessons.filter`，**从而避免无效计算**。
+
+# 互操作与工程化
+
+## Compose 和 View 混编
+
+核心结论：
+
+- 混编就是 Compose 和传统 View 在同一个页面或同一个工程里一起工作
+- 它通常出现在迁移阶段，或者某些现成控件还没改成 Compose 时
+- 混编有两个最核心的方向：Compose 包 View，或者 View 包 Compose
+
+
+
+两个方向：
+
+- `AndroidView`：在 Compose 里包一个传统 View
+- `ComposeView`：在传统 View 体系里包一块 Compose UI
+
+
+
+`AndroidView` 例子：
+
+```kotlin
+AndroidView(
+    factory = { context ->
+        TextView(context)
+    },
+    update = { textView ->
+        textView.text = "count = $count"
+    }
+)
+```
+
+- `factory`：创建 `TextView`
+- `update`：每次状态变化后，把最新数据写回这个 `TextView`
+- 关键点：通常不是每次状态变化都重新创建 View，而是复用旧 View，再同步新状态
+
+
+
+`ComposeView` 例子：
+
+```kotlin
+setContentView(R.layout.activity_compose_view_host)
+
+val composeView = findViewById<ComposeView>(R.id.composeViewHost)
+composeView.setContent {
+    Text("Hello from ComposeView")
+}
+```
+
+- 更常见的场景是：XML 里先放一个 `ComposeView`
+- 然后在 `Activity` / `Fragment` 里找到它，再调用 `setContent { ... }`
+- 关键点：这和 `AndroidView` 是反方向，`AndroidView` 是 Compose 包 View，`ComposeView` 是 View 包 Compose
+
+

@@ -1,5 +1,6 @@
 package com.example.composelearn.interop
 
+import android.content.Intent
 import android.util.Log
 import android.widget.TextView
 import androidx.compose.foundation.background
@@ -25,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +44,7 @@ fun InteropLearningScreen() {
     ) {
         item { InteropHeader() }
         item { AndroidViewLesson() }
+        item { ComposeViewLesson() }
     }
 }
 
@@ -165,6 +168,79 @@ AndroidView(
         textView.text = "count = $count"
     }
 )
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComposeViewLesson() {
+    val context = LocalContext.current
+
+    InteropCard(
+        title = "ComposeView",
+        summary = "目标是理解：更常见的 ComposeView 用法，不是在 Compose 页面里硬塞它，而是在传统 XML / Activity / Fragment 里挂一块 Compose UI。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Button(
+                onClick = {
+                    context.startActivity(
+                        Intent(context, ComposeViewHostActivity::class.java)
+                    )
+                }
+            ) {
+                Text("打开 ComposeView 示例页")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("更真实的场景：XML 里先放一个 ComposeView。", fontWeight = FontWeight.Bold)
+                    Text("再在 Activity / Fragment 里对它调用 setContent { ... }。")
+                    Text("点上面的按钮进入示例页。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. `ComposeView` 本质上是一个传统 View，但它内部承载的是 Compose 内容。")
+                    Text("2. 在 View 体系里用 `setContent { ... }`，就能挂上一块 Compose UI。")
+                    Text("3. 这和 `AndroidView` 是反方向：不是 Compose 包 View，而是 View 包 Compose。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("最小例子", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+setContentView(R.layout.activity_compose_view_host)
+
+val composeView = findViewById<ComposeView>(R.id.composeViewHost)
+composeView.setContent {
+    Text("Hello from ComposeView")
+}
                         """.trimIndent()
                     )
                 }
