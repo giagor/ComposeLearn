@@ -58,11 +58,11 @@
    - Compose 和 View 混编
    - ViewModel 配合、导航、主题、分层架构
 8. **底层原理与高阶能力**
-   - Slot Table
-   - Gap Buffer
    - 自定义 Layout
    - 自定义绘制
    - `graphicsLayer` 和渲染优化
+   - Slot Table
+   - Gap Buffer
 
 # 基础入门
 
