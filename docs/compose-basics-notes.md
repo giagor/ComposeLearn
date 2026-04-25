@@ -60,7 +60,7 @@
 8. **底层原理与高阶能力**
    - 自定义 Layout
    - 自定义绘制
-   - `graphicsLayer` 和渲染优化
+   - `graphicsLayer`
    - Slot Table
    - Gap Buffer
 
@@ -1837,6 +1837,14 @@ Box(
 - `shadowElevation`
 - `clip`
 - `shape`
+
+
+
+如果想例如缩放时，外层布局的宽和高也变：
+
+- 直接改外层布局的 width / height
+- 或者改 size
+- 或者改会影响测量结果的参数
 
 
 
