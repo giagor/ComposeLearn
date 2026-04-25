@@ -1798,3 +1798,57 @@ Modifier.drawWithContent {
 - 自定义绘制关心的是 draw
 - 想自己画一整块图形，用 `Canvas`
 - 想给现有组件补一层效果，优先想 `drawBehind` / `drawWithContent`
+
+## graphicsLayer
+
+核心结论：
+
+- `graphicsLayer` 更像对整块内容做图层级变换
+- 它常见用来做旋转、缩放、透明度、阴影、裁剪
+- 它通常更偏视觉变化，不等于重新布局
+
+
+
+最小例子：
+
+```kotlin
+Box(
+    modifier = Modifier
+        .size(120.dp)
+        .graphicsLayer {
+            rotationZ = 12f
+            scaleX = 1.1f
+            scaleY = 1.1f
+            alpha = 0.9f
+        }
+)
+```
+
+- 这块内容看起来会旋转、放大、变透明
+- 但布局占位不一定跟着一起变
+
+
+
+常见参数：
+
+- `rotationZ`
+- `scaleX` / `scaleY`
+- `alpha`
+- `shadowElevation`
+- `clip`
+- `shape`
+
+
+
+和 Layout 的区别：
+
+- 想改“占位”，通常改 `size` / `width` / `height`
+- 想改“视觉效果”，通常用 `graphicsLayer`
+
+
+
+先记住：
+
+- `Layout`：决定怎么摆
+- `Draw`：决定画什么
+- `graphicsLayer`：决定怎么整体变换这块内容

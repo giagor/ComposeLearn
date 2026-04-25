@@ -34,10 +34,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.graphicsLayer
 
 @Composable
 fun DeepDiveLearningScreen() {
@@ -50,6 +52,7 @@ fun DeepDiveLearningScreen() {
         item { CustomLayoutLesson() }
         item { CustomDrawingLesson() }
         item { DrawingComparisonLesson() }
+        item { GraphicsLayerLesson() }
     }
 }
 
@@ -422,6 +425,132 @@ private fun DrawWithContentExample() {
                 Text("Text", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold)
             }
             Text("你可以控制原内容前后顺序，这里是先画内容再盖一层。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun GraphicsLayerLesson() {
+    var enabled by remember { mutableStateOf(false) }
+
+    DeepDiveCard(
+        title = "graphicsLayer",
+        summary = "目标是理解：graphicsLayer 更像对整块内容做图层级变换，不是重新布局。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Button(onClick = { enabled = !enabled }) {
+                Text(if (enabled) "关闭 graphicsLayer 效果" else "开启 graphicsLayer 效果")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("重点看：卡片占位没变，但视觉会旋转、缩放、变透明。", fontWeight = FontWeight.Bold)
+                    Text("这就是 graphicsLayer 更偏绘制层处理，而不是重新 measure / place。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("正常卡片", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    GraphicsLayerCard(modifier = Modifier)
+                    Text("这里没有额外图层变换。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("graphicsLayer 后的卡片", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    GraphicsLayerCard(
+                        modifier = Modifier.graphicsLayer {
+                            rotationZ = if (enabled) 10f else 0f
+                            scaleX = if (enabled) 1.08f else 1f
+                            scaleY = if (enabled) 1.08f else 1f
+                            alpha = if (enabled) 0.82f else 1f
+                            shadowElevation = if (enabled) 20.dp.toPx() else 0f
+                            clip = enabled
+                            shape = RoundedCornerShape(20.dp)
+                            transformOrigin = TransformOrigin.Center
+                        }
+                    )
+                    Text("这里变的是图层效果，不是布局尺寸。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. `rotationZ`、`scaleX`、`scaleY`、`alpha` 都是图层级效果。")
+                    Text("2. 这块内容看起来变大了，但布局占位不一定跟着重算。")
+                    Text("3. `clip` 和 `shape` 常常一起用，表示按图层形状裁剪内容。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("最小例子", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+Box(
+    modifier = Modifier
+        .size(120.dp)
+        .graphicsLayer {
+            rotationZ = 12f
+            scaleX = 1.1f
+            scaleY = 1.1f
+            alpha = 0.9f
+        }
+)
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GraphicsLayerCard(modifier: Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFFDBEAFE)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("graphicsLayer sample", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("这张卡片的布局规则没变，变化的是整块内容的绘制效果。")
         }
     }
 }
