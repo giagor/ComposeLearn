@@ -1728,3 +1728,73 @@ Layout(content = content) { measurables, constraints ->
 - `constraints` 不是最终尺寸，而是“允许多大”
 - `placeable.width / height` 才是子元素真正量出来的尺寸
 - 现成 `Row` / `Column` / `Box` 不够表达摆放规则时，再考虑自己写 `Layout`
+
+## 自定义绘制
+
+核心结论：
+
+- 自定义绘制主要发生在 draw 阶段
+- 布局决定“多大、放哪”
+- 绘制决定“在这块区域里画什么”
+
+
+
+几个关键点：
+
+- `Canvas`：给你一块已经分配好的绘制区域
+- `size`：当前绘制区域的尺寸
+- `center`：当前绘制区域的中心点
+- draw API：比如 `drawLine`、`drawCircle`、`drawRect`
+
+
+
+最小例子：
+
+```kotlin
+Canvas(modifier = Modifier.size(160.dp)) {
+    drawCircle(
+        color = Color.Blue,
+        radius = size.minDimension * 0.25f,
+        center = center
+    )
+}
+```
+
+- `Canvas` 不是重新决定布局大小，而是在已经分配好的区域里画图
+- `size.minDimension` 含义是"当前绘制区域里，宽和高这两个值中较小的那个"。常用来按当前区域大小计算半径
+
+
+
+`Canvas`、`drawBehind`、`drawWithContent` 的区别：
+
+```kotlin
+Canvas(modifier = Modifier.size(140.dp)) {
+    drawCircle(...)
+}
+```
+
+```kotlin
+Modifier.drawBehind {
+    drawCircle(...)
+}
+```
+
+```kotlin
+Modifier.drawWithContent {
+    drawContent()
+    drawCircle(...)
+}
+```
+
+- `Canvas`：整块区域主要靠你自己画
+- `drawBehind`：在现有内容后面补一层绘制
+- `drawWithContent`：你可以控制原内容先画还是后画
+
+
+
+先记住：
+
+- 自定义 Layout 关心的是 `measure` / `place`
+- 自定义绘制关心的是 draw
+- 想自己画一整块图形，用 `Canvas`
+- 想给现有组件补一层效果，优先想 `drawBehind` / `drawWithContent`

@@ -1,12 +1,16 @@
 package com.example.composelearn.deepdive
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,11 +24,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
@@ -39,6 +48,8 @@ fun DeepDiveLearningScreen() {
     ) {
         item { DeepDiveHeader() }
         item { CustomLayoutLesson() }
+        item { CustomDrawingLesson() }
+        item { DrawingComparisonLesson() }
     }
 }
 
@@ -172,6 +183,245 @@ Layout(content = content) { measurables, constraints ->
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CustomDrawingLesson() {
+    var showGuide by remember { mutableStateOf(true) }
+
+    DeepDiveCard(
+        title = "自定义绘制",
+        summary = "目标是理解：自定义绘制主要发生在 draw 阶段，常见入口是 drawBehind、drawWithContent、Canvas。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Button(onClick = { showGuide = !showGuide }) {
+                Text(if (showGuide) "隐藏辅助线" else "显示辅助线")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("重点看：这里没有重新量尺寸，只是在已有区域里画额外内容。", fontWeight = FontWeight.Bold)
+                    Text("切换按钮时，变化的是绘制结果，不是布局规则。")
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(18.dp))
+                    .padding(16.dp)
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    if (showGuide) {
+                        drawLine(
+                            color = Color(0xFF0F766E),
+                            start = center.copy(x = 0f),
+                            end = center.copy(x = size.width),
+                            strokeWidth = 4.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                        drawLine(
+                            color = Color(0xFF0F766E),
+                            start = center.copy(y = 0f),
+                            end = center.copy(y = size.height),
+                            strokeWidth = 4.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    }
+
+                    drawCircle(
+                        color = Color(0xFF2563EB),
+                        radius = size.minDimension * 0.22f,
+                        center = center
+                    )
+
+                    drawCircle(
+                        color = Color.White,
+                        radius = size.minDimension * 0.3f,
+                        center = center,
+                        style = Stroke(width = 6.dp.toPx())
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("观察点", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. `Canvas` 给你一块已经分配好的绘制区域。")
+                    Text("2. `size`、`center` 这些值描述的是当前绘制区域，不是重新参与测量。")
+                    Text("3. 自定义绘制的重点是“在这块区域里画什么”，不是“重新决定 UI 摆哪”。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("最小例子", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = """
+Canvas(modifier = Modifier.size(160.dp)) {
+    drawCircle(
+        color = Color.Blue,
+        radius = size.minDimension * 0.25f,
+        center = center
+    )
+}
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrawingComparisonLesson() {
+    DeepDiveCard(
+        title = "对比：Canvas / drawBehind / drawWithContent",
+        summary = "目标是理解：三者都能画，但职责不一样。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("下面三个例子会画出相似的视觉元素，但使用入口不同。", fontWeight = FontWeight.Bold)
+                    Text("重点看：是“自己画整块”，还是“在现有内容前后补一层”。")
+                }
+            }
+
+            DrawCanvasExample()
+            DrawBehindExample()
+            DrawWithContentExample()
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("先记住", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. `Canvas`：整块区域主要靠你自己画。")
+                    Text("2. `drawBehind`：在现有内容后面补绘制。")
+                    Text("3. `drawWithContent`：你可以决定原内容先画还是后画。")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrawCanvasExample() {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Canvas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Canvas(
+                modifier = Modifier
+                    .size(140.dp)
+                    .background(Color(0xFFE0F2FE), RoundedCornerShape(16.dp))
+            ) {
+                drawCircle(
+                    color = Color(0xFF2563EB),
+                    radius = size.minDimension * 0.26f,
+                    center = center
+                )
+            }
+            Text("这块区域主要靠你自己画出来。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun DrawBehindExample() {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("drawBehind", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .size(140.dp)
+                    .background(Color(0xFFE0F2FE), RoundedCornerShape(16.dp))
+                    .drawBehind {
+                        drawCircle(
+                            color = Color(0xFF0F766E),
+                            radius = size.minDimension * 0.28f,
+                            center = center
+                        )
+                    },
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Text("Text", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+            Text("先有内容，再在内容后面补一层绘制。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun DrawWithContentExample() {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("drawWithContent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .size(140.dp)
+                    .background(Color(0xFFE0F2FE), RoundedCornerShape(16.dp))
+                    .drawWithContent {
+                        drawContent()
+                        drawCircle(
+                            color = Color.Black.copy(alpha = 0.16f),
+                            radius = size.minDimension * 0.32f,
+                            center = center
+                        )
+                    },
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Text("Text", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold)
+            }
+            Text("你可以控制原内容前后顺序，这里是先画内容再盖一层。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
