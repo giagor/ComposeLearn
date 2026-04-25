@@ -57,12 +57,10 @@
 7. **互操作与工程化**
    - Compose 和 View 混编
    - ViewModel 配合、导航、主题、分层架构
-8. **底层原理与高阶能力**
+8. **自定义能力**
    - 自定义 Layout
    - 自定义绘制
    - `graphicsLayer`
-   - Slot Table
-   - Gap Buffer
 
 # 基础入门
 
@@ -1647,7 +1645,7 @@ fun ProfileScreen(
 - 不要把页面展示、状态组织、数据来源全揉在一个 Composable 里
 - UI 层越只关心 `uiState`，页面通常越清楚
 
-# 底层原理与高阶能力
+# 自定义能力
 
 ## 自定义 Layout
 
