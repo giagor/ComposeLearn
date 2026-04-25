@@ -54,7 +54,6 @@ fun DeepDiveLearningScreen() {
         item { DrawingComparisonLesson() }
         item { GraphicsLayerLesson() }
         item { RenderingOptimizationLesson() }
-        item { SlotTableLesson() }
     }
 }
 
@@ -78,7 +77,7 @@ private fun DeepDiveHeader() {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "底层原理与高阶能力",
+                text = "自定义能力",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -643,128 +642,6 @@ private fun RenderingOptimizationLesson() {
                     Text("2. 想做轻量视觉强调，优先考虑绘制层变化。")
                     Text("3. 渲染优化第一层不是死记规则，而是先分清：这次变化到底是布局问题，还是视觉问题。")
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SlotTableLesson() {
-    var showBadge by remember { mutableStateOf(true) }
-    var showFooter by remember { mutableStateOf(true) }
-    var outerCount by remember { mutableIntStateOf(0) }
-
-    DeepDiveCard(
-        title = "Slot Table",
-        summary = "目标是先建立直觉：Compose Runtime 需要一份内部结构记录，来知道当前组合里有哪些节点、哪些分支还在、remember 状态该接回哪里。"
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Button(onClick = { showBadge = !showBadge }) {
-                Text(if (showBadge) "隐藏 Badge" else "显示 Badge")
-            }
-
-            Button(onClick = { showFooter = !showFooter }) {
-                Text(if (showFooter) "隐藏 Footer" else "显示 Footer")
-            }
-
-            Button(onClick = { outerCount++ }) {
-                Text("outerCount + 1")
-            }
-
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("下面这块 UI 会根据条件显示或隐藏一部分节点。", fontWeight = FontWeight.Bold)
-                    Text("重点不是效果本身，而是理解：Compose 内部需要一份结构记录，才能知道这次组合和上次相比，哪里被插入、删除、复用。")
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("Header", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-                    if (showBadge) {
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Text(
-                                text = "Badge",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Text("Outer count = $outerCount")
-
-                    RememberedCounterChip()
-
-                    if (showFooter) {
-                        Text("Footer", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.tertiaryContainer
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("可以先这样理解", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("1. Slot Table 不是 UI 画面本身，更像 Compose Runtime 维护的一张“组合结构记录表”。")
-                    Text("2. 条件分支变化时，Compose 要靠它知道哪段组合被插入、删除、复用。")
-                    Text("3. `remember` 状态之所以能接回原位置，也依赖这类内部结构信息。")
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("先记住", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("1. 前面的 Layout / Draw / graphicsLayer 更像“怎么显示”。")
-                    Text("2. Slot Table 更像“Compose Runtime 怎么记住当前组合长什么样”。")
-                    Text("3. 它是理解条件分支、remember、重组定位的重要背景。")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RememberedCounterChip() {
-    var localCount by remember { mutableIntStateOf(0) }
-
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text("remember count = $localCount", fontWeight = FontWeight.Bold)
-            Button(onClick = { localCount++ }) {
-                Text("remember +1")
             }
         }
     }

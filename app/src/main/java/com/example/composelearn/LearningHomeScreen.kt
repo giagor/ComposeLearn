@@ -24,6 +24,7 @@ import com.example.composelearn.coremindset.CoreMindsetLearningScreen
 import com.example.composelearn.interop.InteropLearningScreen
 import com.example.composelearn.deepdive.DeepDiveLearningScreen
 import com.example.composelearn.sideeffects.SideEffectsLearningScreen
+import com.example.composelearn.slot_table.SlotTableLearningScreen
 import com.example.composelearn.statebasics.StateBasicsLearningScreen
 
 private enum class LearningSection(val label: String) {
@@ -34,14 +35,15 @@ private enum class LearningSection(val label: String) {
     SideEffects("副作用与异步"),
     AdvancedState("性能与进阶状态"),
     Interop("互操作与工程化"),
-    DeepDive("底层原理与高阶能力")
+    DeepDive("自定义能力"),
+    SlotTable("Slot Table")
 }
 
 @Composable
 fun LearningHomeScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
-    var currentSection by remember { mutableStateOf(LearningSection.DeepDive) }
+    var currentSection by remember { mutableStateOf(LearningSection.SlotTable) }
 
     Column(
         modifier = Modifier
@@ -62,6 +64,7 @@ fun LearningHomeScreen(
             LearningSection.AdvancedState -> AdvancedStateLearningScreen()
             LearningSection.Interop -> InteropLearningScreen()
             LearningSection.DeepDive -> DeepDiveLearningScreen()
+            LearningSection.SlotTable -> SlotTableLearningScreen()
         }
     }
 }
