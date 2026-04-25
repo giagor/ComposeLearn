@@ -53,6 +53,7 @@ fun DeepDiveLearningScreen() {
         item { CustomDrawingLesson() }
         item { DrawingComparisonLesson() }
         item { GraphicsLayerLesson() }
+        item { RenderingOptimizationLesson() }
     }
 }
 
@@ -551,6 +552,97 @@ private fun GraphicsLayerCard(modifier: Modifier) {
         ) {
             Text("graphicsLayer sample", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("这张卡片的布局规则没变，变化的是整块内容的绘制效果。")
+        }
+    }
+}
+
+@Composable
+private fun RenderingOptimizationLesson() {
+    var enabled by remember { mutableStateOf(false) }
+
+    DeepDiveCard(
+        title = "渲染优化",
+        summary = "目标是建立第一层直觉：先分清这次变化到底是布局问题，还是绘制层问题。"
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Button(onClick = { enabled = !enabled }) {
+                Text(if (enabled) "恢复初始状态" else "触发变化")
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("下面两个卡片都会“看起来变大”。", fontWeight = FontWeight.Bold)
+                    Text("左边通过改布局尺寸，右边通过 graphicsLayer 做视觉缩放。")
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("改布局尺寸", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Box(
+                        modifier = Modifier
+                            .size(if (enabled) 180.dp else 140.dp)
+                            .background(Color(0xFFDBEAFE), RoundedCornerShape(18.dp))
+                            .padding(16.dp)
+                    ) {
+                        Text("通过 size 变化让占位真的变大")
+                    }
+                    Text("这类变化更可能让父布局重新考虑怎么摆。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("改绘制层效果", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Box(
+                        modifier = Modifier
+                            .size(140.dp)
+                            .graphicsLayer {
+                                scaleX = if (enabled) 1.25f else 1f
+                                scaleY = if (enabled) 1.25f else 1f
+                                alpha = if (enabled) 0.9f else 1f
+                            }
+                            .background(Color(0xFFCCFBF1), RoundedCornerShape(18.dp))
+                            .padding(16.dp)
+                    ) {
+                        Text("通过 graphicsLayer 让它看起来变大")
+                    }
+                    Text("这类变化更偏视觉层，不一定让布局占位跟着变。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("先记住", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("1. 想改占位，就改布局尺寸。")
+                    Text("2. 想做轻量视觉强调，优先考虑绘制层变化。")
+                    Text("3. 渲染优化第一层不是死记规则，而是先分清：这次变化到底是布局问题，还是视觉问题。")
+                }
+            }
         }
     }
 }
