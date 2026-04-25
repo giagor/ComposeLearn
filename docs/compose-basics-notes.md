@@ -1646,3 +1646,85 @@ fun ProfileScreen(
 
 - 不要把页面展示、状态组织、数据来源全揉在一个 Composable 里
 - UI 层越只关心 `uiState`，页面通常越清楚
+
+# 底层原理与高阶能力
+
+## 自定义 Layout
+
+核心结论：
+
+- 自定义 Layout 最核心就是两步：`measure` 和 `place`
+- `measure` 负责量每个子元素多大
+- `place` 负责把每个子元素放到具体坐标
+
+
+
+几个关键对象：
+
+- `constraints`：父布局给你的尺寸约束
+- `measurable`：还没测量的子元素
+- `placeable`：已经测量完、拿到尺寸的子元素
+- `layout(width, height) { ... }`：决定父布局自己多大，再把子元素摆进去
+
+
+
+例子：
+
+```kotlin
+Layout(content = content) { measurables, constraints ->
+    val columnWidth = constraints.maxWidth / 2
+    val childConstraints = Constraints(
+        minWidth = columnWidth,
+        maxWidth = columnWidth,
+        minHeight = 0,
+        maxHeight = constraints.maxHeight
+    )
+
+    val placeables = measurables.map { measurable ->
+        measurable.measure(childConstraints)
+    }
+
+    val positions = mutableListOf<Pair<Int, Int>>()
+    var leftColumnY = 0
+    var rightColumnY = 0
+
+    placeables.forEachIndexed { index, placeable ->
+        if (index % 2 == 0) {
+            positions += 0 to leftColumnY
+            leftColumnY += placeable.height
+        } else {
+            positions += columnWidth to rightColumnY
+            rightColumnY += placeable.height
+        }
+    }
+
+    val layoutHeight = maxOf(leftColumnY, rightColumnY)
+
+    layout(width = constraints.maxWidth, height = layoutHeight) {
+        placeables.forEachIndexed { index, placeable ->
+            val (x, y) = positions[index]
+            placeable.placeRelative(x = x, y = y)
+        }
+    }
+}
+```
+
+效果图（代码实现的没有Gap，效果图有Gap）：
+
+![custom layout sample](/Users/linchujie/AndroidStudioProjects/ComposeLearn/docs/images/custom_layout_sample.png)
+
+
+
+这段代码在做什么：
+
+- `measurable.measure(...)`：先量子元素
+- `layout(width, height)`：决定父布局自己的最终尺寸
+- `placeRelative(x, y)`：决定子元素放在父布局里的哪个位置
+
+
+
+先记住：
+
+- `constraints` 不是最终尺寸，而是“允许多大”
+- `placeable.width / height` 才是子元素真正量出来的尺寸
+- 现成 `Row` / `Column` / `Box` 不够表达摆放规则时，再考虑自己写 `Layout`
