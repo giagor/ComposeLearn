@@ -435,3 +435,157 @@ key 参与对齐：
 一句话：
 
 - Slot Table 让 Runtime 判断"谁还是原来的谁，谁是新来的，谁已经消失，谁只是换了位置"。
+
+# Slot Table 和 remember 的关系
+
+核心结论：
+
+- `remember` 的值不是存在 Composable 的普通局部变量里，而是存在当前组合位置对应的 slot 里。
+- 重组时，只要 Runtime 能把这次执行对回原来的 group / slot，`remember` 状态就能保留。
+
+## remember 不是普通局部变量
+
+普通局部变量：
+
+```kotlin
+@Composable
+fun Counter() {
+    var count = 0
+
+    Text("count = $count")
+}
+```
+
+重组时，函数重新执行，`count` 会重新变成 `0`。
+
+`remember`：
+
+```kotlin
+@Composable
+fun Counter() {
+    var count by remember { mutableIntStateOf(0) }
+
+    Text("count = $count")
+}
+```
+
+第一次执行时，Runtime 创建状态并存入 slot；下次执行到同一个组合位置时，Runtime 从 slot 取回旧状态。
+
+## remember 依附在 slot 上
+
+```kotlin
+Column {
+    Text("Header")
+    RememberedCounterChip()
+}
+```
+
+可以粗略理解成：
+
+```text
+Column group
+  Text("Header") group
+  RememberedCounterChip group
+    slot: localCount state
+```
+
+关键点：
+
+- `remember` 状态不是挂在函数名上。
+- `remember` 状态不是挂在变量名上。
+- `remember` 状态挂在当前组合位置对应的 slot 上。
+
+## remember 什么时候会丢
+
+`remember` 状态依赖两个条件：
+
+- 这段组合还在 Composition 里。
+- 这次执行能对回原来的 group / slot。
+
+最小例子：
+
+```kotlin
+if (showCounter) {
+    RememberedCounterChip()
+}
+```
+
+操作过程：
+
+```text
+showCounter = true
+count = 3
+
+showCounter = false
+RememberedCounterChip 离开 Composition
+
+showCounter = true
+RememberedCounterChip 重新进入 Composition
+```
+
+结果：
+
+```text
+count = 0
+```
+
+原因：
+
+- 离开 Composition 后，对应 group / slot 被移除。
+- 再次出现时，是新的 group / slot。
+
+## remember(key) 和 key(...) 的区别
+
+`remember(key) { ... }` 控制这个 `remember` 值什么时候重新计算：
+
+```kotlin
+val userState = remember(user.id) {
+    createUserState(user.id)
+}
+```
+
+当 `user.id` 没变：
+
+```text
+继续使用 slot 里的旧 userState
+```
+
+当 `user.id` 变了：
+
+```text
+旧 remember 值不用了
+重新执行 remember block
+生成新的 userState
+把新值放回当前 slot
+```
+
+
+
+`key(...) { ... }` 控制一段组合结构用什么身份参与对齐：
+
+```kotlin
+key(user.id) {
+    UserPanel(user)
+}
+```
+
+当 `user.id` 用作 `key(...)`：
+
+```text
+Runtime 用 user.id 标识这一段 UserPanel 组合
+结构变化时，按这个身份参与对齐
+```
+
+对比：
+
+```text
+remember(user.id)：slot 里的值什么时候重算
+key(user.id)：group / 组合结构怎么识别身份
+```
+
+## 总结
+
+- `remember` 的值存在 slot 里。
+- slot 依附在组合结构上。
+- 对回原来的 group / slot，`remember` 状态就保留。
+- 离开 Composition 或对不回原来的 slot，`remember` 状态就会重新创建。
