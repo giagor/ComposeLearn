@@ -672,3 +672,190 @@ Group(
 - 子 group 在数组中连续排列，一段组合就可以表示成连续区间，Runtime 更容易计算范围、跳过整段内容。
 - 至于在中间插入、删除 group / slot，普通数组本身并不擅长，Slot Table 还需要结合 Gap Buffer 思路来降低修改成本。
 
+## group 在源码里怎么表示
+
+核心结论：
+
+- 源码里一个 group 不是一个 `Group` 对象，而是 `groups: IntArray` 里连续的 5 个 `Int` 字段。
+
+示例代码：
+
+```kotlin
+@Composable
+private fun GroupSourceExample() {
+    Column {
+        Text("Header")
+        RememberedCounterChip()
+    }
+}
+
+@Composable
+private fun RememberedCounterChip() {
+    var localCount by remember { mutableIntStateOf(0) }
+
+    Column {
+        Text("remember count = $localCount")
+        Button(onClick = { localCount++ }) {
+            Text("remember +1")
+        }
+    }
+}
+```
+
+可以粗略理解成：
+
+```text
+Column group
+  Text("Header") group
+  RememberedCounterChip group
+    slot: localCount state
+    Column group
+      Text("remember count") group
+      Button group
+        Text("remember +1") group
+```
+
+源码里的 group 布局：
+
+```kotlin
+// Group layout
+//  0             | 1             | 2             | 3             | 4             |
+//  Key           | Group info    | Parent anchor | Size          | Data anchor   |
+private const val Key_Offset = 0
+private const val GroupInfo_Offset = 1
+private const val ParentAnchor_Offset = 2
+private const val Size_Offset = 3
+private const val DataAnchor_Offset = 4
+private const val Group_Fields_Size = 5
+```
+
+也就是：
+
+```text
+一个 group = 5 个连续 Int
+```
+
+放到数组里：
+
+```text
+groups:
+  [group0 的 5 个字段][group1 的 5 个字段][group2 的 5 个字段]...
+```
+
+真实存储更接近：
+
+```text
+groups:
+  0: group0.key
+  1: group0.groupInfo
+  2: group0.parentAnchor
+  3: group0.size
+  4: group0.dataAnchor
+  5: group1.key
+  6: group1.groupInfo
+  7: group1.parentAnchor
+  8: group1.size
+  9: group1.dataAnchor
+```
+
+### Key
+
+- `Key` 是 group 的基础身份信息。
+- 它来自 Composer 开始一个 group 时传入的 int key。
+- 我们写的 `key(item.id) { ... }` 这种对象 key，通常会作为 ObjectKey 相关数据存到 slots 里，不完全等同于这里的 int key。
+
+### Group info
+
+- `Group info` 是一个压缩字段，把多种信息压在一个 Int 里。可以粗略理解成 `flags + node count`。
+- flags 里会记录是否是 node group、是否有 object key、是否有 aux data 等信息。
+- node count 用来记录这个 group 对应的节点数量。
+
+### Parent anchor
+
+- `Parent anchor` 记录当前 group 的父 group。
+
+用上面的例子理解：
+
+```text
+Column group
+  Text("Header") group
+  RememberedCounterChip group
+```
+
+`Text("Header") group` 和 `RememberedCounterChip group` 的 parent 都指向外层 `Column group`。
+
+这里叫 anchor，而不是简单叫 parent index，是因为 Slot Table 里有 gap，group 的物理位置可能变化；anchor 更适合在插入、删除时维护定位。
+
+### Size
+
+- `Size` 表示这个 group 占了多少个 group，包括自己和子 group。
+
+例子：
+
+```text
+0: Column group, size = 4
+1: Text("Header") group, size = 1
+2: RememberedCounterChip group, size = 2
+3: Text("remember count") group, size = 1
+```
+
+含义：
+
+- `Column group` 的范围是 `0 until 4`。
+- `RememberedCounterChip group` 的范围是 `2 until 4`。
+- Runtime 可以通过 `index + size` 知道这段 group 到哪里结束。如果要跳过一个 group：`下一个 group index = 当前 group index + size`，这就是 子 group 连续排列 的价值。这里的 `index` 是 group index，换算到`IntArray` 下标时要乘以 `Group_Fields_Size`
+
+```text
+当前 group index = 2
+size = 2
+下一个 group index = 2 + 2 = 4
+
+下一个 IntArray 起始下标 = 4 * Group_Fields_Size
+```
+
+### Data anchor
+
+- `Data anchor` 表示这个 group 关联的数据在 `slots` 数组里的位置。
+
+例子：
+
+```text
+groups:
+  group 2: RememberedCounterChip, dataAnchor = 0
+
+slots:
+  slot 0: localCount state
+```
+
+含义：
+
+- `RememberedCounterChip group` 通过 `dataAnchor = 0` 找到 slots 里的 `localCount state`。
+- group 负责描述结构，slot 负责保存数据，data anchor 负责把结构和数据连起来。
+- 这里叫 anchor，而不是 index，是因为 `slots` 数组里也有 gap；gap 移动时，slot 数据的物理位置可能变化，anchor 更适合表示 group 数据位置。
+
+### 字段访问方式
+
+源码访问 group 字段时，会用：
+
+```text
+address * Group_Fields_Size + Offset
+```
+
+例子：
+
+```kotlin
+private inline fun IntArray.key(address: Int) =
+    this[address * Group_Fields_Size]
+
+private fun IntArray.groupSize(address: Int) =
+    this[address * Group_Fields_Size + Size_Offset]
+
+private inline fun IntArray.dataAnchor(address: Int) =
+    this[address * Group_Fields_Size + DataAnchor_Offset]
+```
+
+总结：
+
+- group 是结构单位。
+- 源码里 group 被压平成 `groups: IntArray` 里的 5 个字段。
+- `Key` 标识 group，`Parent anchor` 维护父子关系，`Size` 表示范围，`Data anchor` 连接 slots 数据。
