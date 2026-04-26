@@ -859,3 +859,200 @@ private inline fun IntArray.dataAnchor(address: Int) =
 - group 是结构单位。
 - 源码里 group 被压平成 `groups: IntArray` 里的 5 个字段。
 - `Key` 标识 group，`Parent anchor` 维护父子关系，`Size` 表示范围，`Data anchor` 连接 slots 数据。
+
+## slot 在源码里怎么表示
+
+核心结论：
+
+- 源码里的 slot 不是一个单独的类，而是 `slots: Array<Any?>` 里的元素。
+- `slots` 存组合相关的运行时数据，最典型的是 `remember` 的结果。
+
+源码入口：
+
+```kotlin
+internal class SlotTable : CompositionData, Iterable<CompositionGroup> {
+    var slots = Array<Any?>(0) { null }
+        private set
+}
+```
+
+为什么是 `Array<Any?>`：
+
+- slot 里可能放不同类型的数据，所以不是 `Array<State<*>>`。
+- slots 里可能存 `remember` 的值，也可能存 ObjectKey、Node、Aux 等 group 关联数据。
+
+### slots 存什么
+
+学习时最常关注：
+
+```text
+remember 的结果
+```
+
+例如：
+
+```kotlin
+var localCount by remember { mutableIntStateOf(0) }
+```
+
+可以粗略理解成：
+
+```text
+slots:
+  slot 0: localCount state
+```
+
+但源码层面，slots 不只存 `remember`：
+
+```text
+slots:
+  ObjectKey?
+  Node?
+  Aux?
+  remember value?
+```
+
+### group 怎么找到自己的 slots
+
+group 存在 `groups: IntArray` 里，slot 数据存在 `slots: Array<Any?>` 里。
+
+两者靠 `dataAnchor` 关联：
+
+```text
+groups:
+  group 2: RememberedCounterChip, dataAnchor = 0
+
+slots:
+  slot 0: localCount state
+```
+
+含义：
+
+- group 通过自己的 `DataAnchor_Offset` 找到 `dataAnchor`。
+- `dataAnchor` 再换算成 slots 里的位置。
+- 这样 group 结构和 slot 数据就被连接起来。
+
+源码访问：
+
+```kotlin
+private inline fun IntArray.dataAnchor(address: Int) =
+    this[address * Group_Fields_Size + DataAnchor_Offset]
+```
+
+### dataAnchor 和 slotAnchor
+
+`dataAnchor` 指向 group 数据区的开始。
+
+但 group 数据区里不一定只有普通 slot，还可能先放固定数据：
+
+```text
+ObjectKey?
+Node?
+Aux?
+```
+
+所以普通 slot 的开始位置可能不是 `dataAnchor` 本身，而是 `slotAnchor`。
+
+源码：
+
+```kotlin
+private fun IntArray.slotAnchor(address: Int) =
+    (address * Group_Fields_Size).let { slot ->
+        this[slot + DataAnchor_Offset] +
+            countOneBits(this[slot + GroupInfo_Offset] shr Slots_Shift)
+    }
+```
+
+不用死记这段，理解成：
+
+```text
+slotAnchor = dataAnchor + 固定 group data 的数量
+```
+
+图示：
+
+```text
+group data:
+  [Node?][ObjectKey?][Aux?][普通 slot...]
+   ↑                    ↑
+ dataAnchor          slotAnchor
+```
+
+结论：
+
+- `dataAnchor`：group 关联数据区的开始。
+- `slotAnchor`：普通 slot 的开始。
+
+### ObjectKey / Node / Aux 也在 slots 里
+
+源码里能看到类似访问：
+
+```kotlin
+private fun IntArray.node(index: Int) =
+    if (isNode(index)) {
+        slots[nodeIndex(index)]
+    } else Composer.Empty
+
+private fun IntArray.aux(index: Int) =
+    if (hasAux(index)) {
+        slots[auxIndex(index)]
+    } else Composer.Empty
+
+private fun IntArray.objectKey(index: Int) =
+    if (hasObjectKey(index)) {
+        slots[objectKeyIndex(index)]
+    } else null
+```
+
+含义：
+
+- Node / Aux / ObjectKey 这些对象数据也存在 `slots` 数组里。
+- 有没有这些数据，由 `Group info` 里的 flags 决定。
+- 我们写的 `key(item.id) { ... }` 这种对象身份信息，就和 ObjectKey 相关。
+
+### remember 和 slot 的关系
+
+示例：
+
+```kotlin
+@Composable
+private fun RememberedCounterChip() {
+    var localCount by remember { mutableIntStateOf(0) }
+
+    Text("remember count = $localCount")
+}
+```
+
+第一次组合：
+
+```text
+执行到 remember
+当前 slot 没有旧值
+创建 mutableIntStateOf(0)
+写入 slots
+```
+
+重组时：
+
+```text
+Runtime 对回 RememberedCounterChip group
+根据 slotAnchor 找到对应 slot
+从 slots 里取回 localCount state
+```
+
+如果这段组合离开 Composition：
+
+```text
+RememberedCounterChip group 被删除
+关联的 slot 数据也被移除
+再次出现时创建新的 group / slot
+remember 重新初始化
+```
+
+### 总结
+
+- `groups` 描述结构。
+- `dataAnchor` 指向 group 关联数据区的开始。
+- `slotAnchor` 指向普通 slot 的开始。
+- `slots` 保存运行时对象数据。
+- `remember` 的结果是最典型的 slot 数据。
