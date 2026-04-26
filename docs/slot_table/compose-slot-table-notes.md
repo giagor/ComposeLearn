@@ -323,3 +323,115 @@ A, id = 1, count = 0
 - slot：数据位置，保存 `remember` 等运行时数据。
 - key：组合身份，帮助 Runtime 在结构变化时对齐同一段组合。
 - Slot Table 用 group 记录结构，用 slot 保存数据，用 key 辅助识别身份。
+
+# 重组时如何对齐
+
+核心结论：
+
+- 重组时，Runtime 会把新一轮组合执行过程和旧 Slot Table 对齐；对齐成功就复用 group / slot，对齐失败就插入、删除或重新创建。
+
+
+
+默认对齐：
+
+- 固定结构通常靠调用位置和组合结构对齐，不需要手动 `key`。
+
+```kotlin
+Column {
+    Text("Header")
+    RememberedCounterChip()
+    Text("Footer")
+}
+```
+
+上一次组合记录：
+
+```text
+位置 0: Text("Header") group
+位置 1: RememberedCounterChip group
+  slot: localCount state
+位置 2: Text("Footer") group
+```
+
+下一次重组时，代码结构没有变：
+
+```text
+位置 0 仍然执行 Text("Header")
+位置 1 仍然执行 RememberedCounterChip
+位置 2 仍然执行 Text("Footer")
+```
+
+Runtime 可以按相同的调用位置和结构对上：
+
+```text
+这次位置 0 -> 上次位置 0 的 Header group
+这次位置 1 -> 上次位置 1 的 RememberedCounterChip group
+这次位置 2 -> 上次位置 2 的 Footer group
+```
+
+
+
+条件分支：
+
+```kotlin
+Column {
+    Text("Header")
+
+    if (showBadge) {
+        Text("Badge")
+    }
+
+    Text("Outer count = $outerCount")
+    RememberedCounterChip()
+}
+```
+
+`showBadge = true` 时，上一次组合记录大概是：
+
+```text
+位置 0: Text("Header") group
+位置 1: Text("Badge") group
+位置 2: Text("Outer count") group
+位置 3: RememberedCounterChip group
+  slot: localCount state
+```
+
+`showBadge = false` 时，这一次执行结果变成：
+
+```text
+位置 0: Text("Header") group
+位置 1: Text("Outer count") group
+位置 2: RememberedCounterChip group
+```
+
+Runtime 需要识别：
+
+```text
+Text("Badge") 对应的 group 被删除
+Text("Outer count") 不是新创建的内容，而是原来的 Outer count 继续存在
+RememberedCounterChip 也不是新创建的内容，它的 localCount slot 应该继续接回原来的状态
+```
+
+remember 状态：
+
+- `remember` 的值在 slot 里。
+- 能对回原来的 group / slot，状态就保留。
+- 对不回原来的 group / slot，就会创建新的状态。
+
+
+
+key 参与对齐：
+
+- 默认对齐更依赖调用位置。
+- 列表顺序变化时，位置和业务身份容易分离。
+- `key(item.id)` 可以让 Runtime 按 item 身份对齐。
+
+对齐失败：
+
+- `remember` 状态可能重置。
+- 局部状态可能跟错 item。
+- 输入框、展开状态、动画状态可能出现异常。
+
+一句话：
+
+- Slot Table 让 Runtime 判断"谁还是原来的谁，谁是新来的，谁已经消失，谁只是换了位置"。
