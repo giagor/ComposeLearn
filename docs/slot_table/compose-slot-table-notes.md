@@ -4,8 +4,8 @@
 2. group / slot / key：理解结构单位、数据位置、组合身份。
 3. 重组时如何对齐：理解新一轮组合执行结果如何和旧 Slot Table 对上。
 4. Slot Table 和 remember 的关系：理解 `remember` 的值如何依附在组合位置对应的 slot 上。
-6. Compose 源码：重点看 `SlotTable`、`SlotReader`、`SlotWriter`、`Composer`，用源码验证模型。
-7. Gap Buffer：理解 Slot Table 为什么适合频繁插入、删除组合结构。
+5. Compose 源码：重点看 `SlotTable`、`SlotReader`、`SlotWriter`、`Composer`，理解 group / slot / remember 在源码里如何落地。
+6. Gap Buffer：理解 Slot Table 如何用 Gap Buffer 思路支持 group / slot 的插入、删除和移动。
 
 # Slot Table 解决的问题
 
