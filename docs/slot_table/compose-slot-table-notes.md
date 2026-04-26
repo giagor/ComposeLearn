@@ -588,3 +588,87 @@ key(user.id)：group / 组合结构怎么识别身份
 - slot 依附在组合结构上。
 - 对回原来的 group / slot，`remember` 状态就保留。
 - 离开 Composition 或对不回原来的 slot，`remember` 状态就会重新创建。
+
+# Compose 源码
+
+## SlotTable 的整体结构
+
+核心结论：
+
+- 源码里的 `SlotTable` 不是普通对象树，而是主要由 `groups` 数组和 `slots` 数组组成。
+
+```kotlin
+internal class SlotTable : CompositionData, Iterable<CompositionGroup> {
+    var groups = IntArray(0)
+        private set
+
+    var slots = Array<Any?>(0) { null }
+        private set
+}
+```
+
+作用：
+
+```text
+groups：压平记录组合结构
+slots：存组合相关数据
+```
+
+`groups` 负责什么：
+
+- `groups` 是 `IntArray`，不是一棵对象树，groups 数组不是直接存对象。
+- group 信息会被压平成 int 字段，每个 group 用连续的几个 int 字段表示。
+- group 里会记录 key、node count、group size、parent、data anchor 等结构信息。
+
+`slots` 负责什么：
+
+- `slots` 是 `Array<Any?>`。
+- slots 存 group 关联的数据，例如 `remember` 的值、ObjectKey、Node、Aux 等。
+
+
+
+group 描述 slot 的方式：group 会通过 data anchor 关联到 slots 里的数据范围，如下：
+
+```text
+groups:
+  group 0: Column
+  group 1: RememberedCounterChip, dataAnchor = 0
+
+slots:
+  slot 0: localCount state
+  
+备注：
+```
+
++ localCount 是 RememberedCounterChip 里的 `var localCount by remember { mutableIntStateOf(0) }`。
+
++ `RememberedCounterChip` 这个 group 通过 `dataAnchor = 0` 找到 slots 里的 `localCount state`。
+
+  
+
+为什么 `SlotTable` 不是普通树？如果是普通树，可能长这样：
+
+```text
+Group(
+  key = Column,
+  children = [
+    Group(key = Text),
+    Group(
+      key = RememberedCounterChip,
+      slots = [localCount state],
+      children = [
+        Group(key = Text),
+        Group(key = Button)
+      ]
+    )
+  ]
+)
+```
+
+但源码没有这么做，而是用扁平数组。更顺的理解是：
+
+- Compose Runtime 组合和重组时，经常需要按顺序扫描 group。数组在内存中连续存放，更适合这种线性扫描。
+- 从数据结构角度看，相比普通对象树，扁平数组更紧凑，可以减少大量 Group 对象创建和对象引用跳转。
+- 子 group 在数组中连续排列，一段组合就可以表示成连续区间，Runtime 更容易计算范围、跳过整段内容。
+- 至于在中间插入、删除 group / slot，普通数组本身并不擅长，Slot Table 还需要结合 Gap Buffer 思路来降低修改成本。
+
