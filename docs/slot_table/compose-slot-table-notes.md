@@ -1056,3 +1056,277 @@ remember 重新初始化
 - `slotAnchor` 指向普通 slot 的开始。
 - `slots` 保存运行时对象数据。
 - `remember` 的结果是最典型的 slot 数据。
+
+## SlotReader / SlotWriter
+
+核心结论：
+
+- `SlotTable` 是底层数据结构，`SlotReader` / `SlotWriter` 是读写入口。
+- `SlotReader` 负责读取 group / slot，`SlotWriter` 负责修改 group / slot。
+
+源码入口：
+
+```kotlin
+inline fun <T> read(block: (reader: SlotReader) -> T): T =
+    openReader().let { reader ->
+        try {
+            block(reader)
+        } finally {
+            reader.close()
+        }
+    }
+
+inline fun <T> write(block: (writer: SlotWriter) -> T): T =
+    openWriter().let { writer ->
+        var normalClose = false
+        try {
+            block(writer).also { normalClose = true }
+        } finally {
+            writer.close(normalClose)
+        }
+    }
+```
+
+读写规则：
+
+```text
+可以有多个 Reader
+同一时间只能有一个 Writer
+有 Writer 时不能开 Reader
+有 Reader 时不能开 Writer
+```
+
+"读旧结构、写新结构" 是重组逻辑上的说法，和底层读写互斥不矛盾；底层 `SlotTable` 不允许 Reader 和 Writer 无约束地同时操作同一份数组，Runtime 会用受控流程完成读取和修改。
+
+### SlotReader 读什么
+
+`SlotReader` 可以读取 group 的结构信息：
+
+```kotlin
+fun groupKey(index: Int) = groups.key(index)
+fun groupSize(index: Int) = groups.groupSize(index)
+fun parent(index: Int) = groups.parentAnchor(index)
+fun groupObjectKey(index: Int) = groups.objectKey(index)
+```
+
+它也可以读取 slot 数据：
+
+```kotlin
+fun next(): Any? {
+    if (emptyCount > 0 || currentSlot >= currentSlotEnd) {
+        hadNext = false
+        return Composer.Empty
+    }
+    hadNext = true
+    return slots[currentSlot++]
+}
+```
+
+最小理解：
+
+- 读 group：读 key、size、parent、object key、node count 等结构信息。
+- 读 slot：从当前 slot 游标读取下一个旧值。
+
+### SlotReader 如何进入 group
+
+源码：
+
+```kotlin
+fun startGroup() {
+    val currentGroup = currentGroup
+    ...
+    this.parent = currentGroup
+    // currentEnd: The end of the parent group.
+    currentEnd = currentGroup + groups.groupSize(currentGroup)
+    this.currentGroup = currentGroup + 1
+    // currentSlot: The current slot of parent.
+    this.currentSlot = groups.slotAnchor(currentGroup)
+    // currentSlotEnd: The current end slot of parent.
+    this.currentSlotEnd =
+        if (currentGroup >= groupsSize - 1) slotsSize
+        else groups.dataAnchor(currentGroup + 1)
+}
+```
+
+例子：
+
+```text
+0: Column group, size = 4
+1: Text("Header") group, size = 1
+2: RememberedCounterChip group, size = 2
+3: Text("count") group, size = 1
+```
+
+当 Reader 在 `this.currentGroup = 0` 调用 `startGroup()`：
+
+```text
+this.currentGroup = 0
+
+val currentGroup = 0
+parent = 0
+currentEnd = 0 + 4 = 4
+this.currentGroup = 1
+currentSlot = Column group 的 slotAnchor
+currentSlotEnd = Column group 的 slot 结束位置
+```
+
+含义：
+
+- `startGroup()` 会进入原来的 `currentGroup`，并把它变成新的 `parent`。
+- `currentEnd` 记录这个 parent group 的结束位置。
+- `this.currentGroup` 是 group 结构游标，会移到 parent 的第一个子 group。
+- `currentSlot` 是 slot 游标，指向 parent group 自己的 slots 范围。
+- 所以进入 `Column group` 后，`this.currentGroup` 指向 `Text("Header") group`，但 `currentSlot` 指向的是 `Column group` 的 slotAnchor。
+
+### SlotReader 如何跳过 group
+
+源码：
+
+```kotlin
+fun skipGroup(): Int {
+    val count = if (groups.isNode(currentGroup)) 1 else groups.nodeCount(currentGroup)
+    currentGroup += groups.groupSize(currentGroup)
+    return count
+}
+```
+
+`currentGroup += groupSize`：
+
+- 跳过当前 group 以及它的所有子 group。
+- 这里移动的是 group 游标。
+
+`return count`：
+
+- 返回这段 group 对父级贡献了多少个直接 UI node。
+- 这里处理的是 UI node 数量，不是 group 数量。
+
+### isNode / nodeCount
+
+group 不一定等于真实 UI node。
+
+结构 group：
+
+- 只负责记录组合结构，不直接对应一个 UI node。
+- 例如 `key(user.id) { ... }` 这一层更像结构 group。
+
+node group：
+
+- 这个 group 自己对应一个真实 UI node。
+- 对父级来说，一个 node group 贡献 1 个直接 node。
+
+所以：
+
+```text
+isNode(group) = 当前 group 自己是不是 node group
+nodeCount(group) = 当前结构 group 内部向父级贡献了多少个 node
+```
+
+例子：
+
+```text
+Column node group
+  Text node group
+  Text node group
+```
+
+跳过 `Column node group` 时：
+
+```text
+groupSize 可能很多
+skipGroup 返回 1
+```
+
+因为从 `Column` 的父级看，`Column` 整体只是 1 个直接 node。
+
+结构 group 例子：
+
+```text
+key group
+  Text node group
+```
+
+跳过 `key group` 时：
+
+```text
+key group 自己不是 node
+skipGroup 返回它内部贡献的 nodeCount
+```
+
+区分：
+
+```text
+groupSize：这段组合占多少个 group
+nodeCount：这段组合对父级贡献多少个 UI node
+```
+
+### SlotReader.next() 什么时候调用
+
+`next()` 的本质：
+
+```text
+从当前 slot 游标读取下一个旧值
+```
+
+典型场景是 `remember`：
+
+```kotlin
+var count by remember { mutableIntStateOf(0) }
+```
+
+执行到 `remember` 这一行时，Runtime 需要从当前 slot 里取旧的 state 对象，这时会涉及 `SlotReader.next()` 这类 slot 读取逻辑。
+
+但使用 `count` 的值时：
+
+```kotlin
+Text("count = $count")
+```
+
+读取的是 `MutableState.value`，不是再从 SlotTable 里读一次 slot。
+
+也就是：
+
+```text
+remember 这一行：读取 slot 里保存的 state 对象
+Text("$count")：读取 state 对象里的 value
+```
+
+补充：
+
+- `remember` 是 `next()` 的典型使用场景之一，不是唯一场景。
+- 只要 Runtime 需要按顺序读取当前 group 里的 slot 数据，就可能用到这类读取逻辑。
+
+### SlotWriter 做什么
+
+`SlotWriter` 负责修改 `SlotTable`：
+
+```text
+写入 group
+写入 slot
+插入 group / slot
+删除 group / slot
+更新 group size
+更新 node count
+```
+
+源码里 Writer 会维护 gap 相关字段：
+
+```kotlin
+private var groupGapStart: Int = table.groupsSize
+private var groupGapLen: Int = groups.size / Group_Fields_Size - table.groupsSize
+
+private var slotsGapStart: Int = table.slotsSize
+private var slotsGapLen: Int = slots.size - table.slotsSize
+```
+
+含义：
+
+- Writer 不只是简单 append。
+- Writer 需要管理 `groups` 数组和 `slots` 数组里的 gap。
+- Gap Buffer 是后面理解插入、删除 group / slot 的关键。
+
+### 总结
+
+- `SlotReader` 负责读表：读 group 结构，也读 slot 旧值。
+- `SlotWriter` 负责改表：写入、插入、删除 group / slot。
+- `skipGroup()` 同时处理 group 游标和 UI node 数量。
+- 例如 `var count by remember { mutableIntStateOf(0) }`：执行到 `remember` 时，会读取 slot 里保存的 state 对象；后续使用 `count` 时，读的是这个 state 对象的 `value`，不是再次调用 `next()` 读 slot。
