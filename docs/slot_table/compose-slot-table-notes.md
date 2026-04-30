@@ -1330,3 +1330,199 @@ private var slotsGapLen: Int = slots.size - table.slotsSize
 - `SlotWriter` 负责改表：写入、插入、删除 group / slot。
 - `skipGroup()` 同时处理 group 游标和 UI node 数量。
 - 例如 `var count by remember { mutableIntStateOf(0) }`：执行到 `remember` 时，会读取 slot 里保存的 state 对象；后续使用 `count` 时，读的是这个 state 对象的 `value`，不是再次调用 `next()` 读 slot。
+
+## Composer 如何使用 SlotTable
+
+核心结论：
+
+- Composer 会把 `remember { ... }` 转成对当前 slot 的读取和写回：能读到旧值就复用，读不到旧值或 `invalid = true` 就执行 block 创建新值并写回。
+
+### rememberedValue / updateRememberedValue
+
+源码入口：
+
+```kotlin
+@ComposeCompilerApi
+public fun rememberedValue(): Any?
+
+@ComposeCompilerApi
+public fun updateRememberedValue(value: Any?)
+```
+
+作用：
+
+```text
+rememberedValue()：读当前组合位置上一次保存的值
+updateRememberedValue(value)：把新值写回当前组合位置，供下一次组合读取
+```
+
+### Composer.cache
+
+`remember` 底层会走 `Composer.cache` 这类逻辑：
+
+```kotlin
+public inline fun <T> Composer.cache(
+    invalid: Boolean,
+    block: @DisallowComposableCalls () -> T
+): T {
+    return rememberedValue().let {
+        if (invalid || it === Composer.Empty) {
+            val value = block()
+            updateRememberedValue(value)
+            value
+        } else it
+    } as T
+}
+```
+
+最小理解：
+
+```text
+先读 rememberedValue()
+如果 invalid = true，或者读到 Composer.Empty：
+  执行 block 创建新值
+  updateRememberedValue(value) 写回
+  返回新值
+否则：
+  返回旧值
+```
+
+例如：
+
+```kotlin
+val state = remember { mutableIntStateOf(0) }
+```
+
+第一次组合：
+
+```text
+rememberedValue() -> Composer.Empty
+执行 block -> mutableIntStateOf(0)
+updateRememberedValue(state)
+返回 state
+```
+
+重组时：
+
+```text
+rememberedValue() -> 上次保存的 state
+不执行 block
+返回旧 state
+```
+
+### rememberedValue 最终读 slot
+
+`ComposerImpl` 里：
+
+```kotlin
+override fun rememberedValue(): Any? = nextSlotForCache()
+```
+
+`nextSlotForCache()` 会在非插入阶段读取旧 slot：
+
+```kotlin
+internal fun nextSlotForCache(): Any? {
+    return if (inserting) {
+        Composer.Empty
+    } else {
+        reader.next()
+    }
+}
+```
+
+核心链路：
+
+```text
+remember
+-> Composer.cache
+-> rememberedValue()
+-> nextSlotForCache()
+-> SlotReader.next()
+-> 读旧 slot
+```
+
+### updateRememberedValue 最终写 slot
+
+`ComposerImpl` 里：
+
+```kotlin
+override fun updateRememberedValue(value: Any?) =
+    updateCachedValue(value)
+```
+
+主线：
+
+```text
+updateRememberedValue(value)
+-> updateCachedValue(value)
+-> updateValue(value)
+-> 写入 / 更新 slot
+```
+
+`updateValue` 大致分两种情况：
+
+```text
+插入阶段：
+  直接通过 SlotWriter 写入，例如 writer.update(value)
+
+重组更新阶段：
+  通常先记录到 changeListWriter
+  后续再由变更应用流程更新 slot
+```
+
+所以：
+
+- `updateValue` 最终目标是更新 SlotTable 里的 slot。
+- 插入时会直接用 `SlotWriter`。
+- 重组时不一定立刻直接写 SlotTable，可能先记录 change。
+
+### remember(key) 和 invalid
+
+```kotlin
+val state = remember(user.id) {
+    createUserState(user.id)
+}
+```
+
+当 `user.id` 没变：
+
+```text
+invalid = false
+rememberedValue() 读到旧 state
+直接返回旧 state
+```
+
+当 `user.id` 变了：
+
+```text
+invalid = true
+即使 rememberedValue() 读到旧 state
+仍然执行 block
+生成新 state
+updateRememberedValue(newState)
+```
+
+区别：
+
+```text
+remember(user.id)：当前 slot 的值要不要重算
+key(user.id)：这段 group 用什么身份参与对齐
+```
+
+### 总结
+
+```text
+remember { ... }
+  -> Composer.cache(invalid, block)
+  -> rememberedValue()
+  -> nextSlotForCache()
+  -> SlotReader.next()
+  -> 读旧 slot
+
+如果读到 Empty 或 invalid：
+  -> block()
+  -> updateRememberedValue(value)
+  -> updateCachedValue(value)
+  -> updateValue(value)
+  -> 写回 slot
+```
