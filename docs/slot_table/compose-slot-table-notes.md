@@ -1526,3 +1526,242 @@ remember { ... }
   -> updateValue(value)
   -> 写回 slot
 ```
+
+# Gap Buffer
+
+## Gap Buffer 解决什么问题
+
+核心结论：
+
+- Gap Buffer 用来缓解数组中间插入、删除的成本。
+
+普通数组适合：
+
+- 顺序扫描。
+- 紧凑存储。
+- 按 index 快速访问。
+
+普通数组不擅长：
+
+- 中间插入元素。
+- 中间删除元素。
+
+例子：
+
+```text
+A B C D E
+```
+
+如果要在 `B` 后面插入 `X`：
+
+```text
+A B X C D E
+```
+
+普通数组需要把 `C D E` 整体往后挪。
+
+Gap Buffer 的思路：
+
+```text
+A B _ _ _ C D E
+```
+
+中间的 `_ _ _` 是 gap。如果在 `B` 后面插入 `X`：
+
+```text
+A B X _ _ C D E
+```
+
+只需要消耗 gap 的一个空位，不需要移动后面的 `C D E`。
+
+## 基本操作
+
+插入：
+
+```text
+A B _ _ _ C D E
+    ^
+    gapStart
+```
+
+在 `B` 后面插入 `X`：
+
+```text
+A B X _ _ C D E
+      ^
+      gapStart
+```
+
+规则：
+
+```text
+把元素写到 gapStart
+gapStart += 1
+gapLen -= 1
+```
+
+删除：
+
+```text
+A B C D _ _ E
+        ^
+        gapStart
+```
+
+删除 gap 左边的 `D`：
+
+```text
+A B C _ _ _ E
+      ^
+      gapStart
+```
+
+规则：
+
+```text
+gapStart -= 1
+gapLen += 1
+```
+
+最小理解：
+
+- 插入是消耗 gap。
+- 删除是扩大 gap。
+
+移动 gap：gap 不是凭空移动的，而是通过搬运 gap 和目标位置之间的元素实现。
+
+gap 向右移动：
+
+```text
+A B _ _ _ C D E
+    ^
+    gapStart
+
+A B C D _ _ _ E
+        ^
+        gapStart
+```
+
+含义：
+
+- 把 `C D` 搬到 gap 左边。
+- gap 被移动到 `D` 后面。
+
+gap 向左移动：
+
+```text
+A B C D _ _ _ E
+        ^
+        gapStart
+
+A B _ _ _ C D E
+    ^
+    gapStart
+```
+
+含义：
+
+- 把 `C D` 搬到 gap 右边。
+- gap 被移动到 `B` 后面。
+
+## 成本特点
+
+如果 gap 已经在编辑位置：
+
+```text
+插入：便宜
+删除：便宜
+```
+
+如果 gap 不在编辑位置：
+
+```text
+先移动 gap
+移动成本 = gap 和目标位置之间的元素数量
+```
+
+所以 Gap Buffer 不是让所有插入、删除都变成 O(1)，而是适合：
+
+- 编辑位置有局部性。
+- 经常在当前位置附近连续插入、删除。
+
+## 对应到 SlotTable
+
+SlotTable 用扁平数组存 group / slot：
+
+```text
+groups: IntArray
+slots: Array<Any?>
+```
+
+数组带来：
+
+- 紧凑存储。
+- 快速线性扫描。
+- 子 group 可以作为连续区间处理。
+
+但 SlotTable 也需要在中间插入、删除 group / slot，例如条件分支出现或消失：
+
+```kotlin
+Column {
+    Text("Header")
+
+    if (showBadge) {
+        Text("Badge")
+    }
+
+    RememberedCounterChip()
+}
+```
+
+`showBadge` 从 `false` 变成 `true`：
+
+```text
+Header
+RememberedCounterChip
+
+变成：
+
+Header
+Badge
+RememberedCounterChip
+```
+
+这相当于在中间插入 group。
+
+`showBadge` 从 `true` 变成 `false`：
+
+```text
+Header
+Badge
+RememberedCounterChip
+
+变成：
+
+Header
+RememberedCounterChip
+```
+
+这相当于在中间删除 group。
+
+SlotTable 里的两套 gap：
+
+```kotlin
+groupGapStart
+groupGapLen
+
+slotsGapStart
+slotsGapLen
+```
+
+含义：
+
+- `groupGapStart` / `groupGapLen`：groups 数组里的 gap。
+- `slotsGapStart` / `slotsGapLen`：slots 数组里的 gap。
+
+注意：
+
+- group gap 的单位是 group。
+- slot gap 的单位是 slot。
+- 一个 group 在底层 `groups: IntArray` 里占 5 个 int。
+- 所以 group gap 的真实 IntArray 空位是 `groupGapLen * Group_Fields_Size`。
