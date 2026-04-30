@@ -436,7 +436,7 @@ var name by remember { mutableStateOf("Compose") }
 
 各自负责：
 
-- `mutableStateOf(...)` 创建可观察状态
+- `mutableStateOf(...)` 创建可观察状态，当其值改变时，compose能感知，并更新依赖这个值的UI的相关 Composable，触发重组
 - `remember { ... }` 让状态在重组时保留
 - 状态变化会驱动 UI 更新
 
