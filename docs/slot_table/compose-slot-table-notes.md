@@ -4,8 +4,7 @@
 2. group / slot / key：理解结构单位、数据位置、组合身份。
 3. 重组时如何对齐：理解新一轮组合执行结果如何和旧 Slot Table 对上。
 4. Slot Table 和 remember 的关系：理解 `remember` 的值如何依附在组合位置对应的 slot 上。
-5. Compose 源码：重点看 `SlotTable`、`SlotReader`、`SlotWriter`、`Composer`，理解 group / slot / remember 在源码里如何落地。
-6. Gap Buffer：理解 Slot Table 如何用 Gap Buffer 思路支持 group / slot 的插入、删除和移动。
+5. Compose 源码：重点看 `SlotTable`、`SlotReader`、`SlotWriter`、`Composer`，理解 group / slot / remember 在源码里如何落地。理解 Slot Table 如何用 Gap Buffer 思路支持 group / slot 的插入、删除和移动。
 
 # Slot Table 解决的问题
 
@@ -589,7 +588,7 @@ key(user.id)：group / 组合结构怎么识别身份
 - 对回原来的 group / slot，`remember` 状态就保留。
 - 离开 Composition 或对不回原来的 slot，`remember` 状态就会重新创建。
 
-# Compose 源码
+# Compose 源码与存储实现
 
 ## SlotTable 的整体结构
 
@@ -1527,9 +1526,9 @@ remember { ... }
   -> 写回 slot
 ```
 
-# Gap Buffer
+## Gap Buffer 在 SlotTable 里的作用
 
-## Gap Buffer 解决什么问题
+### 解决什么问题
 
 核心结论：
 
@@ -1574,7 +1573,7 @@ A B X _ _ C D E
 
 只需要消耗 gap 的一个空位，不需要移动后面的 `C D E`。
 
-## 基本操作
+### 基本操作
 
 插入：
 
@@ -1664,7 +1663,7 @@ A B _ _ _ C D E
 - 把 `C D` 搬到 gap 右边。
 - gap 被移动到 `B` 后面。
 
-## 成本特点
+### 成本特点
 
 如果 gap 已经在编辑位置：
 
@@ -1685,7 +1684,7 @@ A B _ _ _ C D E
 - 编辑位置有局部性。
 - 经常在当前位置附近连续插入、删除。
 
-## 对应到 SlotTable
+### 对应到 SlotTable
 
 SlotTable 用扁平数组存 group / slot：
 
