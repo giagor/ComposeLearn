@@ -1764,3 +1764,82 @@ slotsGapLen
 - slot gap 的单位是 slot。
 - 一个 group 在底层 `groups: IntArray` 里占 5 个 int。
 - 所以 group gap 的真实 IntArray 空位是 `groupGapLen * Group_Fields_Size`。
+
+### index / address / anchor
+
+核心结论：
+
+- `index` 是逻辑位置。
+- `address` 是底层数组里的真实位置。
+- `anchor` 是为了让位置在 gap 移动后仍然能被找回的编码方式。
+
+为什么需要区分：
+
+```text
+A B _ _ _ C D E
+```
+
+逻辑内容是：
+
+```text
+A B C D E
+```
+
+所以：
+
+```text
+C 的 index = 2
+C 的 address = 5
+```
+
+`index` 不关心 gap，`address` 要看真实数组下标。
+
+
+
+index 换 address：
+
+```text
+如果 index < gapStart：
+  address = index
+
+如果 index >= gapStart：
+  address = index + gapLen
+```
+
+
+
+anchor 为什么出现：
+
+- 如果 group 字段里直接存物理 address，gap 一移动，这些 address 可能就不对。
+- 使用anchor，gap 前的位置可以直接记录。gap 后的位置可以用距离数组末尾的方式记录。这样 gap 移动时，很多 anchor 不需要逐个更新。
+
+对应到源码字段：
+
+```text
+Parent anchor
+Data anchor
+```
+
+
+
+对应到 SlotTable：
+
+```text
+group index -> group address -> IntArray 下标
+slot index -> slot address
+```
+
+对于 group：
+
+```text
+index：第几个 group
+address：考虑 group gap 后的 group 位置
+真实 IntArray 下标 = address * Group_Fields_Size
+```
+
+对于 slot：
+
+```text
+index：第几个 slot
+address：考虑 slot gap 后的 slots 数组位置
+```
