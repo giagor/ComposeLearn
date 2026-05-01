@@ -1810,8 +1810,10 @@ index 换 address：
 
 anchor 为什么出现：
 
-- 如果 group 字段里直接存物理 address，gap 一移动，这些 address 可能就不对。
-- 使用anchor，gap 前的位置可以直接记录。gap 后的位置可以用距离数组末尾的方式记录。这样 gap 移动时，很多 anchor 不需要逐个更新。
+- anchor目标：减少插入、删除、gap 移动后需要更新的位置记录
+- 为什么不用address表示anchor？gap 移动，address 可能会频繁更新
+- 为什么不用index表示anchor？插入或删除元素，index 可能会频繁更新 
+- anchor好处：gap 前的位置可以直接记录。gap 后的位置可以用距离数组末尾的方式记录。gap 移动时，很多 anchor 不需要逐个更新。
 
 对应到源码字段：
 
