@@ -36,6 +36,7 @@ private const val RecompositionLogTag = "ComposeCoreMindset"
 
 @Composable
 internal fun DeclarativeAndRecomposeLesson() {
+    Log.d("abcdefg", "DeclarativeAndRecomposeLesson: step1")
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         CoreMindsetLessonCard(
             title = "先记住两个结论",
@@ -57,11 +58,13 @@ internal fun DeclarativeAndRecomposeLesson() {
 private fun DeclarativeCounterCard() {
     var count by remember { mutableIntStateOf(0) }
 
+    Log.d("abcdefg", "DeclarativeCounterCard: step1")
     CoreMindsetLessonCard(
         title = "实验 1：声明式 UI",
         summary = "按钮修改状态，文本自动跟着变化。"
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Log.d("abcdefg", "DeclarativeCounterCard: step2")
             Text(
                 text = if (count == 0) "你还没有点击按钮" else "你已经点击了 $count 次",
                 style = MaterialTheme.typography.titleLarge,
@@ -72,6 +75,7 @@ private fun DeclarativeCounterCard() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Log.d("abcdefg", "DeclarativeCounterCard: step3")
                 Button(onClick = { count++ }) {
                     Text("点击 +1")
                 }

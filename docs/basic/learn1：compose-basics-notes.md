@@ -1709,7 +1709,7 @@ Layout(content = content) { measurables, constraints ->
 
 效果图（代码实现的没有Gap，效果图有Gap）：
 
-![custom layout sample](/Users/linchujie/AndroidStudioProjects/ComposeLearn/docs/images/custom_layout_sample.png)
+![custom layout sample](images/custom_layout_sample.png)
 
 
 
