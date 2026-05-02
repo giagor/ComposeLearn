@@ -1,25 +1,14 @@
-> 内容：@Composable 与组合原理
-
 # 学习路线
 
-1. `@Composable` 的作用与编译器改写
+1. `@Composable` 的作用与实现
    - 理解 `@Composable` 标记的函数和普通 Kotlin 函数有什么不同。
    - 理解 Compose Compiler 如何改写 Composable 函数，让 Runtime 能参与函数调用过程。
-
 2. Composer 作用及来源
    - 理解 Composer 是组合过程里的运行时协作者。
    - 理解最顶层 Composer 由 Runtime 创建，后续由编译器改写后的调用链继续向下传递。
    - 重点看它如何记录结构、对齐旧组合、保存和读取运行时数据。
 
-3. 组合阶段做什么
-   - 理解组合阶段负责决定"有哪些 UI"。
-   - 重点看 Composable 执行、group 记录、结构对齐、插入、删除、跳过。
-
-4. 和 Slot Table / group / remember / key 的关系
-   - 理解 Slot Table 是组合阶段留下的结构和数据记录。
-   - 理解 group 记录结构，slot 保存 `remember` 数据，key 帮助组合身份对齐。
-
-# @Composable 的作用与编译器改写
+# @Composable 的作用与实现
 
 核心结论：
 
@@ -422,3 +411,10 @@ fun normal() {
 ```
 
 普通函数没有处在 Composable 调用链里，手上没有这个隐式的 `Composer` 上下文。
+
+## 总结
+
+- `@Composable` 注解本身只是标记。
+- 真正改写函数签名、增加 `Composer` 参数、改写调用点的是 Compose Compiler。
+- 因为函数标记了 `@Composable`，Compose Compiler 会把它纳入 Compose 编译协议，给函数增加 `Composer` 等隐藏参数，并在 Composable 调用 Composable 时自动传入 `Composer`。
+- `@Composable` 不是运行时通过反射读取注解再改参数，而是在编译期被 Compose Compiler 识别，然后生成不同的代码。
