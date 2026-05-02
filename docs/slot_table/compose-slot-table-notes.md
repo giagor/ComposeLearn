@@ -1845,3 +1845,146 @@ address：考虑 group gap 后的 group 位置
 index：第几个 slot
 address：考虑 slot gap 后的 slots 数组位置
 ```
+
+# Slot Table 心智闭环
+
+## 完整链路
+
+```text
+Composable 重新执行
+-> Composer 记录 / 对齐 group
+-> SlotTable 用 groups 保存结构
+-> SlotTable 用 slots 保存数据
+-> remember 从 slot 取旧值或写新值
+-> key 帮助 Runtime 识别组合身份
+-> SlotReader 读旧结构和旧 slot
+-> SlotWriter 修改 group / slot
+-> Gap Buffer 支持中间插入、删除
+```
+
+最小理解：
+
+- `groups` 负责组合结构。
+- `slots` 负责运行时数据。
+- `remember` 的值存在 slot 里。
+- `key` 参与 group 身份识别。
+- `Gap Buffer` 让 `groups` / `slots` 更适合中间插入、删除。
+
+## 对回工程例子
+
+简化代码：
+
+```kotlin
+@Composable
+private fun SlotTableLesson() {
+    var showBadge by remember { mutableStateOf(true) }
+    var outerCount by remember { mutableIntStateOf(0) }
+
+    Column {
+        Text("Header")
+
+        if (showBadge) {
+            Text("Badge")
+        }
+
+        Text("Outer count = $outerCount")
+
+        RememberedCounterChip()
+    }
+}
+
+@Composable
+private fun RememberedCounterChip() {
+    var localCount by remember { mutableIntStateOf(0) }
+
+    Text("remember count = $localCount")
+}
+
+@Composable
+private fun KeyedDemoList(items: List<SlotKeyDemoItem>) {
+    items.forEach { item ->
+        key(item.id) {
+            RememberedListItem(item = item)
+        }
+    }
+}
+
+@Composable
+private fun RememberedListItem(item: SlotKeyDemoItem) {
+    var count by remember { mutableIntStateOf(0) }
+
+    Text("${item.label}: remember count = $count")
+}
+```
+
+`showBadge`：
+
+- 条件分支出现或消失，会导致对应 group 插入或删除。
+- Runtime 需要识别 `Badge` 消失后，`RememberedCounterChip` 仍然是原来的组合内容。
+
+`RememberedCounterChip`：
+
+- `localCount` 来自 `remember`。
+- `remember` 创建的 state 对象存在 slot 里。
+- 重组时能对回原来的 group / slot，`localCount` 就保留。
+
+列表 `key(item.id)`：
+
+- 不用 key 时，状态更容易跟组合位置走。
+- 使用 `key(item.id)` 后，Runtime 可以按 item 身份对齐 group。
+- item 换位置时，对应的 remember slot 仍然能对回原来的 item。
+
+## A / B 交换时的对齐差异
+
+例子：
+
+```text
+A B C -> B A C
+```
+
+不用 key：
+
+```text
+旧位置 0 group -> 原来组合 A -> slot count = 3
+旧位置 1 group -> 原来组合 B -> slot count = 0
+
+重组后：
+新位置 0 的 B -> 复用旧位置 0 group -> count = 3
+新位置 1 的 A -> 复用旧位置 1 group -> count = 0
+```
+
+原因：
+
+- 没有 `objectKey` 时，同一个 parent 下的多个 item group 很像。
+- Runtime 没有足够身份信息区分 A / B，只能按位置复用 group / slot。
+- `dataAnchor` 没有失效，它仍然能找到原 group 的 slot。
+- 问题是旧位置 group 被拿来表示新的 item。
+
+使用 key：
+
+```text
+旧 A group -> objectKey = A.id -> 新位置 1 的 A
+旧 B group -> objectKey = B.id -> 新位置 0 的 B
+
+重组后：
+B -> 对回 B group -> B 的 slot
+A -> 对回 A group -> A 的 slot
+```
+
+原因：
+
+- `key(item.id)` 给每个 item group 提供 `objectKey`。
+- Runtime 能识别 A / B 是移动，不是位置上的内容替换。
+- SlotWriter 复用或移动对应 group，并维护 group 和 slot 数据的对应关系。
+
+一句话：
+
+- `key` 解决"哪个旧 group 对应哪个新 item"。
+- `dataAnchor` 解决"这个 group 的数据在哪里"。
+
+## 总结
+
+- Slot Table 是 Compose Runtime 在多次组合之间保存结构和数据的内部表。
+- group 负责结构，slot 负责数据，key 帮助身份对齐。
+- SlotReader 负责读旧结构和旧 slot，SlotWriter 负责修改 group / slot。
+- Gap Buffer 支持这张表处理中间插入、删除。
