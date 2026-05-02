@@ -2,24 +2,9 @@
 
 建议分 **4 篇**，刚好按内部关联度切开：
 
-1. `docs/compose_runtime/learn3-composable-and-composition-notes.md`
-
-主题：`@Composable` 与组合原理
-
-内容放：
-
-- `@Composable` 的作用
-- Compose Compiler 大概做了什么
-- Composer 是什么
-- Composable 调用为什么能被 Runtime 追踪
-- 组合阶段做什么
-- 和 Slot Table / group / remember / key 的关系
-
-这一篇承接你已经学过的 Slot Table，适合作为新一轮原理学习入口。
-
 2. `docs/compose_runtime/learn4-snapshot-system-notes.md`
 
-主题：Snapshot 系统
+主题：[Snapshot]() 系统
 
 内容放：
 
