@@ -3,24 +3,13 @@
 1. Snapshot 系统解决什么问题
    - 理解 `mutableStateOf` 为什么不是普通变量。
    - 理解 Compose 怎么知道状态被谁读过，以及状态写入后为什么能通知相关组合失效。
-
 2. Snapshot 的状态模型
    - 理解 StateObject / StateRecord 的基本关系。
    - 理解一个 state 对象为什么可能有多份记录，以及 Snapshot 为什么需要版本。
-
 3. 读写追踪与 apply
    - 理解 Composable 读取 `state.value` 时如何建立依赖。
    - 理解修改 `state.value` 后如何进入 Snapshot 机制。
    - 理解 apply 后如何通知观察者，让相关组合失效。
-
-4. Snapshot、Recomposer、Composer 的协作边界
-   - 理解 Snapshot 负责发现 state 变化。
-   - 理解 Recomposer 负责安排重组。
-   - 理解 Composer 负责重新执行和对齐组合结构。
-   - 区分 `remember`、`mutableStateOf`、Slot Table 和 Snapshot 的职责。
-   - `remember` 不是状态追踪系统，它只是保存对象。
-   - `mutableStateOf` 才是可观察状态。
-   - 普通变量变化不会自动触发重组。
 
 # Snapshot 系统解决什么问题
 
@@ -355,6 +344,7 @@ flowchart LR
     Composer["Composer"]
     Scope["RecomposeScope"]
     Recomposer["Recomposer"]
+    SlotTable["Slot Table"]
 
     State -- "read value" --> Snapshot
     Snapshot -- "notify read" --> Composer
@@ -366,6 +356,8 @@ flowchart LR
 
     Recomposer -. "run recomposition" .-> Composer
     Composer -. "read state again" .-> State
+    Composer -. "align group / slot" .-> SlotTable
+    SlotTable -. "restore remember value" .-> Composer
 
     linkStyle 0 stroke:#2563eb,stroke-width:2px
     linkStyle 1 stroke:#2563eb,stroke-width:2px
@@ -377,6 +369,8 @@ flowchart LR
 
     linkStyle 6 stroke:#6b7280,stroke-width:2px,stroke-dasharray:4 4
     linkStyle 7 stroke:#6b7280,stroke-width:2px,stroke-dasharray:4 4
+    linkStyle 8 stroke:#6b7280,stroke-width:2px,stroke-dasharray:4 4
+    linkStyle 9 stroke:#6b7280,stroke-width:2px,stroke-dasharray:4 4
 ```
 
 图里三条路线：
@@ -384,20 +378,18 @@ flowchart LR
 ```text
 蓝色：读取 state，建立 state -> RecomposeScope 依赖
 红色：写入 state，通知变化并让相关 scope 失效
-灰色虚线：Recomposer 调度 Composer 重新执行
+灰色虚线：Recomposer 调度 Composer 重新执行，并通过 Slot Table 对齐结构和恢复 remember 数据
 ```
 
 关键类：
 
 - `MutableState`：保存可观察状态值，读写 `value` 会进入 Snapshot 机制。
-
-- `Snapshot`：管理 state 的读写版本，记录 read / write，并在 apply 时发布变化。
-
-- `Composer`：执行组合，知道当前正在组合哪个 `RecomposeScope`，并把 state read 记录到当前 scope 上。
-
+- `Snapshot`：管理 state 的读写版本，记录 read / write，并在 apply 时发布变化；不负责重新执行 Composable。
+- `Composer`：执行组合，知道当前正在组合哪个 `RecomposeScope`，并把 state read 记录到当前 scope 上；重组时负责和 Slot Table 对齐结构。
 - `RecomposeScope`：可失效的重组范围；它读过的 state 变化后，会被标记为 invalid。
-
-- `Recomposer`：接收失效信号，决定什么时候重新执行相关组合。
+- `Recomposer`：接收失效信号，决定什么时候重新执行相关组合；它是调度者，不是具体执行组合的人。
+- `Slot Table`：保存 group / slot，帮助重组时对齐旧结构和新结构，也保存 `remember` 的结果；它不负责观察 `mutableStateOf` 的读写。
+- `remember`：把对象保存在组合位置对应的 slot 上；它不是状态追踪系统，真正可观察的是 `mutableStateOf`。
 
   
 
@@ -485,9 +477,10 @@ count++
 边界：
 
 ```text
-Snapshot：发现 state 的读写变化，通知哪些 state 变了
+Snapshot：发现 state 读写变化
 Recomposer：安排什么时候重组
-Composer：重新执行相关 Composable，并和旧结构对齐
+Composer：重新执行相关 Composable
+Slot Table：保存结构和 remember 数据
 ```
 
 一句话：
