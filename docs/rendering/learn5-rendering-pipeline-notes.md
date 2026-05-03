@@ -13,9 +13,14 @@
    - 先理解 `constraints -> measure -> place`。
    - 再结合 `MeasurePolicy`、`MeasureScope`、`Measurable`、`Placeable` 理解 measure / place。
    - 结合 `Canvas`、`drawBehind`、`drawWithContent` 理解绘制入口。
-4. Modifier 与传统 View 的关系
-   - 结合 `Modifier.Node` 理解 Modifier 如何参与不同阶段。
-   - 结合 `AndroidComposeView` 理解 Compose 如何挂到 Android View 系统。
+4. Modifier 在各阶段的作用
+   - 理解 Modifier 不只是改外观。
+   - 理解不同 Modifier 可以参与测量、布局、绘制、输入、语义等阶段。
+   - 简单理解 `Modifier.Node` 如何把这些能力挂到 `LayoutNode` 上。
+5. Compose 和传统 View 的关系
+   - 理解 Compose 与传统 View 的软件绘制 / 硬件绘制关系。
+   - 理解 Compose Canvas 如何桥接到 Android Canvas。
+   - 理解组合 / 重组和 Android View 回调的边界。
 
 # 整体渲染管线
 
@@ -645,6 +650,133 @@ background(Color.Red)：影响绘制，在已有区域里画红色。
 - `Canvas`：作为 Composable 参与测量 / 布局，然后在 draw block 里画自定义图形。
 - `drawBehind`：在内容后面画，适合背景、底纹、装饰线。
 - `drawWithContent`：可以控制自定义绘制和原内容的顺序，`drawContent()` 表示继续绘制原内容。
+
+# Modifier 在各阶段的作用
+
+核心结论：
+
+```text
+Modifier 不是只改外观。
+Modifier 是挂在 LayoutNode 上的一串能力链。
+不同 Modifier 可以参与测量、布局、绘制、输入、语义等阶段。
+```
+
+例如：
+
+```kotlin
+Box(
+    Modifier
+        .size(100.dp)
+        .background(Color.Red)
+        .clickable { }
+)
+```
+
+对应关系：
+
+```text
+size：影响测量。
+background：影响绘制。
+clickable：影响输入，也会附带语义和视觉反馈。
+```
+
+## Modifier.Node
+
+可以粗略理解成：
+
+```text
+Modifier.Element
+  -> 创建 / 更新 Modifier.Node
+  -> Modifier.Node 挂到 LayoutNode 上
+  -> LayoutNode 在不同阶段调用对应类型的 Node
+```
+
+常见类型：
+
+```text
+LayoutModifierNode：参与测量 / 布局。
+DrawModifierNode：参与绘制。
+PointerInputModifierNode：参与输入。
+SemanticsModifierNode：参与语义。
+```
+
+所以不是所有 Modifier 都参与所有阶段。
+
+## 常见 Modifier
+
+`Modifier.size(100.dp)` 影响测量，会影响传给子内容的 constraints，以及当前节点测量出来的 size。
+
+`Modifier.padding(16.dp)` 影响测量和布局，可以理解成先从父约束里扣掉 padding 测量内容，再把内容尺寸加回 padding，布局时把内容往里偏移。
+
+`Modifier.background(Color.Red)` 影响绘制，不决定节点多大，只是在已有区域里画颜色。
+
+`Modifier.clickable { }` 主要参与输入，也会涉及语义、indication / ripple、focus、interaction 等能力。
+
+## Modifier 顺序
+
+Modifier 是链式包裹模型，顺序会影响结果。
+
+例如：
+
+```kotlin
+Modifier
+    .background(Color.Red)
+    .padding(16.dp)
+```
+
+和：
+
+```kotlin
+Modifier
+    .padding(16.dp)
+    .background(Color.Red)
+```
+
+含义不同：
+
+```text
+先 background 再 padding：背景覆盖 padding 前的外层区域。
+先 padding 再 background：背景只画 padding 后的内部区域。
+```
+
+`clickable` 和 `padding` 的顺序也可能影响点击区域。
+
+一句话：
+
+```text
+Modifier 不是属性列表，而是一条有顺序的处理链。
+```
+
+## 语义 Semantics
+
+语义指 UI 对外暴露的结构化含义，主要服务无障碍、自动化测试、屏幕阅读器等外部系统。
+
+例如：
+
+```kotlin
+Modifier.semantics {
+    contentDescription = "用户头像"
+}
+```
+
+表示这个 UI 对外暴露的描述是 `"用户头像"`。
+
+可以这样区分：
+
+```text
+绘制：这个 UI 长什么样。
+布局：这个 UI 放在哪里、多大。
+输入：这个 UI 怎么响应手势。
+语义：这个 UI 对无障碍 / 测试系统来说是什么。
+```
+
+`clickable` 会附带语义，因为它会告诉外部系统这个节点可以点击，并提供点击动作。
+
+一句话：
+
+```text
+Composable 负责声明 UI，LayoutNode 承接 UI 节点，Modifier.Node 给这个节点追加不同阶段的能力。
+```
 
 # Compose 和传统 View 的关系
 
