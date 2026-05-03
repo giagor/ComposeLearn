@@ -645,3 +645,212 @@ background(Color.Red)：影响绘制，在已有区域里画红色。
 - `Canvas`：作为 Composable 参与测量 / 布局，然后在 draw block 里画自定义图形。
 - `drawBehind`：在内容后面画，适合背景、底纹、装饰线。
 - `drawWithContent`：可以控制自定义绘制和原内容的顺序，`drawContent()` 表示继续绘制原内容。
+
+# Compose 和传统 View 的关系
+
+## 软件绘制和硬件绘制
+
+Compose UI 默认走宿主 View / Window 的硬件加速绘制环境。
+
+关键点：
+
+```text
+Compose 不是单独发明一套 GPU 管线。
+Compose 通过 AndroidComposeView 接入 Android View 绘制体系。
+如果宿主 View / Window 关闭硬件加速，Compose 也可能走软件绘制路径。
+正常 App 场景下，Compose 基本按硬件加速绘制理解。
+```
+
+## Canvas 桥接
+
+Compose 的 `Canvas` 在 Android 上最终会桥接到 `android.graphics.Canvas`。
+
+例如 Compose 里调用 `drawLine`，最终会走到 `AndroidCanvas.drawLine`：
+
+```kotlin
+Canvas(modifier = Modifier.fillMaxSize()) {
+  drawLine(...)
+}
+```
+
+```kotlin
+@PublishedApi internal var internalCanvas: NativeCanvas = EmptyCanvas
+
+override fun drawLine(p1: Offset, p2: Offset, paint: Paint) {
+    internalCanvas.drawLine(p1.x, p1.y, p2.x, p2.y, paint.asFrameworkPaint())
+}
+```
+
+`NativeCanvas` 是跨平台类型声明 `expect class NativeCanvas`。在 Android 平台：
+
+```kotlin
+// androidMain/androidx/compose/ui/graphics/AndroidCanvas.android.kt
+actual typealias NativeCanvas = android.graphics.Canvas
+```
+
+也就是说，Compose 的绘制命令最终会转成对 `internalCanvas` 的调用。硬件加速路径下，`internalCanvas`的类型通常是 `RecordingCanvas`。
+
+
+
+`NativeCanvas internalCanvas` 的注入：绘制入口先到 `AndroidComposeView.dispatchDraw`：
+
+```kotlin
+override fun dispatchDraw(canvas: android.graphics.Canvas) {
+    canvasHolder.drawInto(canvas) {
+        root.draw(
+            canvas = this,
+            graphicsLayer = null,
+        )
+    }
+}
+```
+
+`internalCanvas` 随后在 `CanvasHolder.drawInto` 里被临时注入：
+
+```kotlin
+inline fun drawInto(targetCanvas: android.graphics.Canvas, block: Canvas.() -> Unit) {
+    val previousCanvas = androidCanvas.internalCanvas
+    androidCanvas.internalCanvas = targetCanvas
+    androidCanvas.block()
+    androidCanvas.internalCanvas = previousCanvas
+}
+```
+
+整体链路：
+
+```text
+AndroidComposeView.dispatchDraw(canvas)
+  -> canvasHolder.drawInto(canvas)
+  -> AndroidCanvas.internalCanvas = targetCanvas
+  -> root.draw(...)
+  -> Compose Canvas.drawLine(...)
+  -> internalCanvas.drawLine(...)
+```
+
+所以：
+
+```text
+不是 Compose 主动 new 出 RecordingCanvas。
+Compose 只是把 Android View 体系传进来的 Canvas 包装进 AndroidCanvas。
+```
+
+## 整体关系
+
+可以这样理解：
+
+```text
+Compose 自己维护 LayoutNode 树。
+AndroidComposeView 接收传统 View 体系的 measure / layout / draw 回调。
+这些回调进入 Compose UI 管线，驱动 LayoutNode 树测量、布局、绘制。
+传统 View 体系下，AndroidComposeView 占据一块 View 空间。
+Compose 最终通过 Android Canvas / RenderNode / GPU 管线显示到屏幕。
+```
+
+边界：
+
+```text
+Composable 不等于 Android View。
+ComposeView / AndroidComposeView 是 Compose 接入传统 View 树的入口。
+Column / Text / Button 等 Compose 内容主要存在于内部 LayoutNode 树里。
+```
+
+一句话：
+
+```text
+Compose 自己管理 UI 结构和布局绘制逻辑，但在 Android 上仍然借 AndroidComposeView 接入 View 树，并通过 Android 的绘制管线把结果显示出来。
+```
+
+## 组合与重组时机
+
+组合 / 重组不是发生在 `AndroidComposeView.onMeasure()`、`onLayout()`、`dispatchDraw()` 里的固定步骤。
+
+核心分工：
+
+```text
+Recomposer / Composer：负责组合和重组，生成或更新 LayoutNode 树。
+AndroidComposeView：接收 View 的 measure / layout / draw 回调，消费 LayoutNode 树。
+```
+
+首次组合：
+
+```text
+Activity.setContent { ... }
+  -> 创建 ComposeView
+  -> ComposeView.setContent(content)
+  -> 创建 Composition
+  -> Composer 执行 content
+  -> 生成 / 更新 LayoutNode 树
+  -> AndroidComposeView 后续接收 measure / layout / draw
+```
+
+状态变化后的重组：
+
+```text
+mutableStateOf 写入新值
+  -> Snapshot apply 发布变化
+  -> Recomposer 收到 invalidation
+  -> Composer 重组失效的 Composable
+  -> 更新 Slot Table 和 LayoutNode 树
+  -> 需要时触发测量 / 布局 / 绘制
+```
+
+所以重组发生在：
+
+```text
+Recomposer 消费 invalidation，并调用 Composition 重新 compose 的时候。
+```
+
+它通常发生在下一帧调度附近，和 Android 的 Choreographer / frame clock 有关系。
+
+一句话：
+
+```text
+组合 / 重组决定和更新 UI 树；
+测量 / 布局 / 绘制消费 UI 树，把结果显示出来。
+```
+
+## 整体流程图
+
+```mermaid
+flowchart TD
+    State["mutableStateOf 写入"]
+    Snapshot["Snapshot apply"]
+    Recomposer["Recomposer 收到 invalidation"]
+    FrameClock["Choreographer / frame clock<br/>下一帧调度附近"]
+    Consume["Recomposer 消费 invalidation"]
+    Composer["Composer / Composition 重新 compose"]
+    SlotTable["Slot Table"]
+    LayoutTree["LayoutNode 树"]
+
+    ViewSystem["Android View 体系"]
+    ACV["AndroidComposeView"]
+    Holder["CanvasHolder.drawInto(canvas)"]
+    ACanvas["AndroidCanvas.internalCanvas = targetCanvas"]
+    DrawCmd["Compose drawLine / drawRect / drawContent"]
+    NativeCanvas["NativeCanvas"]
+    FrameworkCanvas["android.graphics.Canvas"]
+    RenderNode["RenderNode / RecordingCanvas"]
+    GPU["RenderThread / GPU"]
+
+    State --> Snapshot --> Recomposer --> FrameClock --> Consume --> Composer
+    Composer --> SlotTable
+    Composer --> LayoutTree
+
+    ViewSystem -->|"measure / layout / draw"| ACV
+    ACV -->|"驱动测量 / 布局 / 绘制"| LayoutTree
+    ACV -->|"dispatchDraw(canvas)"| Holder
+    Holder --> ACanvas --> DrawCmd
+    DrawCmd --> NativeCanvas --> FrameworkCanvas
+    RenderNode -->|"硬件加速路径提供 RecordingCanvas"| ACV
+    FrameworkCanvas --> RenderNode --> GPU
+
+    classDef compose fill:#E8F0FE,stroke:#3F51B5,color:#111;
+    classDef android fill:#E8F5E9,stroke:#2E7D32,color:#111;
+    classDef canvas fill:#FFF3E0,stroke:#EF6C00,color:#111;
+    classDef gpu fill:#FCE4EC,stroke:#AD1457,color:#111;
+
+    class State,Snapshot,Recomposer,FrameClock,Consume,Composer,SlotTable,LayoutTree compose;
+    class ViewSystem,ACV android;
+    class Holder,ACanvas,DrawCmd,NativeCanvas,FrameworkCanvas,RenderNode canvas;
+    class GPU gpu;
+```
