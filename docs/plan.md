@@ -2,21 +2,6 @@
 
 建议分 **4 篇**，刚好按内部关联度切开：
 
-2. `docs/compose_runtime/learn4-snapshot-system-notes.md`
-
-主题：[Snapshot]() 系统
-
-内容放：
-
-- Snapshot 解决什么问题
-- `mutableStateOf` 为什么能被观察
-- state read / write tracking
-- Snapshot 和 Recomposer 的关系
-- 状态变化如何让相关组合失效
-- Snapshot 一致性、隔离、apply 的直觉
-
-这一篇专门讲状态系统底层，不和 UI 测量绘制混在一起。
-
 3. `docs/compose_ui/learn5-compose-rendering-pipeline-notes.md`
 
 主题：组合 / 测量 / 布局 / 绘制原理
