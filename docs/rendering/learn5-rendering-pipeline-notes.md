@@ -10,7 +10,8 @@
    - 结合 Compose 后的Android View树长什么样
    - 结合 `LayoutNode` 看 Compose 如何承接测量、布局、绘制。
 3. 测量、布局与绘制原理
-   - 结合 `MeasurePolicy`、`MeasureScope`、`Placeable` 理解 measure / place。
+   - 先理解 `constraints -> measure -> place`。
+   - 再结合 `MeasurePolicy`、`MeasureScope`、`Placeable` 理解 measure / place。
    - 结合 `Canvas`、`drawBehind`、`drawWithContent` 理解绘制入口。
 4. Modifier 与传统 View 的关系
    - 结合 `Modifier.Node` 理解 Modifier 如何参与不同阶段。
@@ -346,4 +347,77 @@ LayoutNode 树承接后续测量、布局、绘制。
 AndroidComposeView 把这棵树挂回 Android View 系统。
 ```
 
-## 
+# 测量、布局与绘制原理
+
+## constraints -> measure -> place
+
+Compose 的布局过程：
+
+```text
+父节点给 constraints。
+子节点在 constraints 内 measure，返回自己的 size。
+父节点拿到子节点尺寸后，决定自己多大。
+父节点在 layout 阶段把子节点 place 到具体位置。
+```
+
+`constraints` 是父节点给子节点的尺寸限制，主要包含：
+
+```text
+minWidth / maxWidth / minHeight / maxHeight
+```
+
+`measure` 用约束测量子节点，只得到大小：
+
+```kotlin
+val placeable = measurable.measure(constraints)
+```
+
+`place` 把已经测量好的子节点放到父节点坐标系里：
+
+```kotlin
+placeable.place(x = 0, y = 20)
+```
+
+例子：
+
+```kotlin
+Column {
+    Text("A")
+    Text("B")
+}
+```
+
+可以粗略理解成：
+
+```text
+Column 收到父节点给自己的 constraints。
+Column 测量 Text("A") 和 Text("B")。
+Text("A") / Text("B") 返回自己的 size。
+Column 根据子节点尺寸决定自己的 size。
+Column 把 A 放到 y = 0，把 B 放到 y = A.height。
+```
+
+自定义 `Layout` 要先 measure 再 place，因为不先知道子节点多大，就无法决定父节点大小和子节点位置。通常会看到这种结构：
+
+```kotlin
+Layout(content = { ... }) { measurables, constraints ->
+    val placeables = measurables.map { measurable ->
+        measurable.measure(constraints)
+    }
+
+    layout(width, height) {
+        placeables.forEach { placeable ->
+            placeable.place(x, y)
+        }
+    }
+}
+```
+
+关键边界：
+
+```text
+measure 决定大小，不决定最终位置。
+place 决定位置，不重新测量。
+```
+
+
