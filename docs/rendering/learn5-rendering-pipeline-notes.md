@@ -6,7 +6,7 @@
    - 理解组合 / 测量 / 布局 / 绘制分别做什么。
    - 理解状态变化可能影响不同阶段。
 2. Compose UI 树和 LayoutNode
-   - 理解 Composable 不等于 Android View。
+   - 理解 Composable 不等于 Android View。结合Compose后的Android View树长什么样
    - 结合 `LayoutNode` 看 Compose 如何承接测量、布局、绘制。
 3. 测量、布局与绘制原理
    - 结合 `MeasurePolicy`、`MeasureScope`、`Placeable` 理解 measure / place。
@@ -112,3 +112,178 @@ Box(
 ```text
 Composable 不是 View，那组合之后的 UI 结构到底交给谁去测量、布局、绘制
 ```
+
+# Compose UI 树和 LayoutNode
+
+核心结论：
+
+- Composable 不是 Android View。
+- Compose 会维护自己的 UI 树，真正参与测量、布局、绘制的核心节点是 `LayoutNode`。
+- `LayoutNode` 是 Compose 源码里的真实类：`androidx.compose.ui.node.LayoutNode`。
+- Compose 最终通过 `ComposeView` / `AndroidComposeView` 挂到 Android View 系统里。
+
+## LayoutNode
+
+`LayoutNode` 可以理解成：
+
+```text
+Compose UI 树里的布局 / 绘制节点
+```
+
+它主要承接：
+
+- 子节点关系。
+- Modifier 链。
+- measure。
+- layout。
+- draw。
+- semantics 等信息。
+
+例如：
+
+```kotlin
+Column {
+    Text("Ada")
+    Text("VIP")
+}
+```
+
+可以粗略理解成：
+
+```text
+LayoutNode(Column)
+  LayoutNode(Text "Ada")
+  LayoutNode(Text "VIP")
+```
+
+这只是心智模型，不是说每个 Composable 都一定对应一个 `LayoutNode`。
+
+例如：
+
+```kotlin
+@Composable
+fun UserName(name: String) {
+    Text(name)
+}
+```
+
+`UserName` 通常只是函数封装，不一定产生自己的 UI 节点。真正可能产生 UI 节点的是里面的 `Text(name)`。
+
+关键点：
+
+```text
+Composable 调用很多
+LayoutNode 只对应真正参与布局 / 绘制的 UI 节点
+```
+
+不要理解成：
+
+```text
+一个 Composable = 一个 LayoutNode
+```
+
+一句话：
+
+```text
+LayoutNode 是 Compose 自己的 UI 节点；Composable 用来声明 UI，LayoutNode 承接后续测量、布局、绘制。
+```
+
+## Android View 树
+
+当前工程打印出来的 View 树：
+
+```text
+com.android.internal.policy.DecorView id=-1
+  android.widget.LinearLayout id=-1
+    android.view.ViewStub id=16908782
+    android.widget.FrameLayout id=16908290
+      androidx.compose.ui.platform.ComposeView id=-1
+        androidx.compose.ui.platform.AndroidComposeView id=-1
+          android.view.View id=-1
+```
+
+这棵 View 树说明：
+
+- Activity 里不是每个 Composable 都变成了 Android View。
+
+- 传统 View 树里主要看到的是 `ComposeView` 和它内部的 `AndroidComposeView`。
+
+- `Column`、`Text`、`Button` 这些 Compose 内容主要存在于 Compose 内部的 `LayoutNode` 树里。
+
+  
+
+`ComposeView`：
+
+- 暴露给 Android View 体系的 Compose 容器 View。
+- 由 `Activity.setContent { ... }` 内部创建，并通过 `setContentView` 放进 `android.R.id.content`。
+- 保存传入的 `@Composable content`。
+- 管理 Composition 的创建和销毁策略。
+- 对外表现为一个 Android `ViewGroup`。
+
+设置时机：
+
+```kotlin
+// MainActivity.kt
+setContent {
+    ComposeLearnTheme {
+        ...
+    }
+}
+
+// ComponentActivity.setContent
+public fun ComponentActivity.setContent(
+    parent: CompositionContext? = null,
+    content: @Composable () -> Unit
+) {
+  	...
+    ComposeView(this).apply {
+        // Set content and parent **before** setContentView
+        // to have ComposeView create the composition on attach
+        setParentCompositionContext(parent)
+        setContent(content)
+        // Set the view tree owners before setting the content view so that the inflation process
+        // and attach listeners will see them already present
+        setOwners()
+        setContentView(this, DefaultActivityContentLayoutParams)
+    }
+}
+```
+
+
+
+`AndroidComposeView`：
+
+- `ComposeView` 内部创建的 Compose Owner View。
+- 承载 Compose 的 `LayoutNode` 树。
+- 把 Android 的 measure / layout / draw / input / accessibility 等事件接到 Compose。
+
+设置时机：
+
+```kotlin
+setContent {
+    ComposeLearnTheme {
+        Scaffold { ... }
+    }
+}
+```
+
+```text
+1. Activity.onCreate 调用 setContent { ... }
+2. activity-compose 创建 ComposeView
+3. setContentView(ComposeView)，ComposeView 被放进 Activity 的 content FrameLayout
+4. ComposeView attach 到 window 后，或者首次 measure 时创建 Composition
+5. 创建 Composition 时，内部创建 AndroidComposeView
+6. AndroidComposeView 持有 Compose 的 root LayoutNode
+7. 后续 Compose 内容通过 LayoutNode 树测量、布局、绘制
+```
+
+
+
+可以粗略理解成：
+
+```text
+ComposeView：外层容器，给 Android View 树看的
+AndroidComposeView：内部承载者，给 Compose UI 系统干活的
+```
+
+最后一层 `AndroidComposeView -> android.view.View` 通常是 Compose 内部为了某些 Android 平台能力挂的辅助 View，不代表你的 Composable 子节点变成了传统 View。
