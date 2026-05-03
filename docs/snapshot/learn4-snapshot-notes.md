@@ -255,3 +255,224 @@ mutableStateOf
 ```text
 Snapshot 的状态模型，就是用 StateObject 表示状态身份，用 StateRecord 表示状态在不同 Snapshot 下的值。
 ```
+
+# 读写追踪与 apply
+
+核心结论：
+
+- 读 state 会建立依赖：当前 RecomposeScope 依赖这个 state。
+- 写 state 会记录变化：这个 state 被修改了。
+- apply 会发布变化：通知观察者，让相关 RecomposeScope 失效。
+- Snapshot 管 state 的读写和通知，Recomposer 管调度，Composer 管重组执行。
+
+完整链路：
+
+```text
+读取 state.value
+-> Snapshot 记录这次 read
+-> 当前 RecomposeScope 知道自己依赖了这个 state
+
+写入 state.value
+-> Snapshot 记录这次 write
+-> apply 后通知观察者
+-> 依赖这个 state 的 RecomposeScope 被标记为 invalid
+-> Recomposer 安排重组
+```
+
+## 读追踪
+
+例子：
+
+```kotlin
+@Composable
+fun CounterText(count: State<Int>) {
+    Text("count = ${count.value}")
+}
+```
+
+当组合执行到：
+
+```kotlin
+count.value
+```
+
+这里不是普通字段读取。Snapshot 系统会知道这个 state 被读取了，同时 Compose 当前正在组合某个作用域，所以可以建立关系：
+
+```text
+当前 RecomposeScope 依赖 count 这个 state
+```
+
+也就是：
+
+```text
+state count
+  -> 被 CounterText 这个组合范围读取过
+```
+
+## 写追踪与 apply
+
+当写入：
+
+```kotlin
+count.value = 1
+```
+
+Snapshot 会记录：
+
+```text
+这个 state 被写入了
+```
+
+写入不只是"值变了"，它还需要经历 apply：
+
+```text
+写入：在当前 Snapshot 里记录修改
+apply：把修改提交出去，并通知观察者
+```
+
+apply 大概负责：
+
+```text
+确认这批写入
+合并到全局可见状态
+通知观察者：哪些 state 变了
+```
+
+Compose Runtime 收到变化后，会找到之前读取过这些 state 的组合范围，把它们标记为失效。
+
+失效不是马上重新画 UI，而是：
+
+```text
+这个 RecomposeScope 需要在下一轮重组中重新执行
+```
+
+## 读写流程图
+
+```mermaid
+flowchart LR
+    State["MutableState"]
+    Snapshot["Snapshot"]
+    Composer["Composer"]
+    Scope["RecomposeScope"]
+    Recomposer["Recomposer"]
+
+    State -- "read value" --> Snapshot
+    Snapshot -- "notify read" --> Composer
+    Composer -- "record dependency" --> Scope
+
+    State -- "write value" --> Snapshot
+    Snapshot -- "apply / notify changed" --> Recomposer
+    Recomposer -- "invalidate / schedule" --> Scope
+
+    Recomposer -. "run recomposition" .-> Composer
+    Composer -. "read state again" .-> State
+
+    linkStyle 0 stroke:#2563eb,stroke-width:2px
+    linkStyle 1 stroke:#2563eb,stroke-width:2px
+    linkStyle 2 stroke:#2563eb,stroke-width:2px
+
+    linkStyle 3 stroke:#dc2626,stroke-width:2px
+    linkStyle 4 stroke:#dc2626,stroke-width:2px
+    linkStyle 5 stroke:#dc2626,stroke-width:2px
+
+    linkStyle 6 stroke:#6b7280,stroke-width:2px,stroke-dasharray:4 4
+    linkStyle 7 stroke:#6b7280,stroke-width:2px,stroke-dasharray:4 4
+```
+
+图里三条路线：
+
+```text
+蓝色：读取 state，建立 state -> RecomposeScope 依赖
+红色：写入 state，通知变化并让相关 scope 失效
+灰色虚线：Recomposer 调度 Composer 重新执行
+```
+
+关键类：
+
+- `MutableState`：保存可观察状态值，读写 `value` 会进入 Snapshot 机制。
+
+- `Snapshot`：管理 state 的读写版本，记录 read / write，并在 apply 时发布变化。
+
+- `Composer`：执行组合，知道当前正在组合哪个 `RecomposeScope`，并把 state read 记录到当前 scope 上。
+
+- `RecomposeScope`：可失效的重组范围；它读过的 state 变化后，会被标记为 invalid。
+
+- `Recomposer`：接收失效信号，决定什么时候重新执行相关组合。
+
+  
+
+write 和 apply 关系：
+
+- write 把修改记录到当前 Snapshot，apply 提交这批修改，并对外发布哪些 state 变了。
+- 在一个 mutable snapshot 里，可以先发生多次 write，再统一 apply：
+
+```text
+write A
+write B
+write C
+apply
+```
+
+
+
+apply 和 Recomposer 关系：
+
+- apply 负责发布 state 变化，Recomposer 收到变化后把相关 RecomposeScope 标记为 invalid。
+- 真正重组通常在后续 frame / 调度点统一执行；多次 apply 可能只对应后面一轮重组。
+
+```text
+apply A
+apply B
+apply C
+-> Recomposer 下一轮重组
+```
+
++ Snapshot apply 是"发布变化"，Recomposer 重组是"消费变化"
+
+
+
+## 最小例子
+
+```kotlin
+var count by remember { mutableStateOf(0) }
+
+Text("count = $count")
+
+Button(onClick = { count++ }) {
+    Text("+1")
+}
+```
+
+第一次组合：
+
+```text
+执行 Text("count = $count")
+-> 读取 count
+-> 当前组合范围记录依赖 count
+```
+
+点击按钮：
+
+```text
+count++
+-> 写入 count state
+-> Snapshot apply
+-> 通知 count 变了
+-> 读取过 count 的组合范围失效
+-> Recomposer 安排重组
+-> Text 重新读取 count，显示新值
+```
+
+边界：
+
+```text
+Snapshot：发现 state 的读写变化，通知哪些 state 变了
+Recomposer：安排什么时候重组
+Composer：重新执行相关 Composable，并和旧结构对齐
+```
+
+一句话：
+
+```text
+读 state 建立依赖，写 state 记录变化，apply 发布变化，相关组合失效，Recomposer 安排重组。
+```
