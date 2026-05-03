@@ -155,3 +155,103 @@ Composable 读取 state.value
 ```text
 Snapshot 系统让 Compose state 从"普通内存值"变成"可追踪、可通知、可按版本管理的状态"。
 ```
+
+# Snapshot 的状态模型
+
+核心结论：
+
+- `mutableStateOf` 创建的是一个可被 Snapshot 管理的状态对象。
+- StateObject 表示状态身份，StateRecord 表示这个状态在某个 Snapshot 下的值。
+- 状态值不是靠一个普通字段直接裸存，而是通过 StateRecord 这类版本记录参与 Snapshot 读写。
+
+可以先粗略理解成：
+
+```text
+state 这个对象 = StateObject
+state 里面保存的某个版本的值 = StateRecord
+```
+
+也就是：
+
+```kotlin
+val state = mutableStateOf(0)
+```
+
+不是简单等于：
+
+```kotlin
+class Box {
+    var value = 0
+}
+```
+
+更接近这个心智模型：
+
+```text
+MutableState
+  -> StateRecord(value = 0, snapshotId = ...)
+  -> StateRecord(value = 1, snapshotId = ...)
+  -> StateRecord(value = 2, snapshotId = ...)
+```
+
+这不是源码逐字结构，只是帮助理解。
+
+
+
+为什么需要 StateRecord：
+
+- Snapshot 系统要支持不同 Snapshot 看到不同版本的 state 值。
+- 如果只是一个普通字段，很难表达谁看到旧值、谁写了新值、什么时候正式生效、冲突怎么判断。
+- StateRecord 让状态值可以按版本参与读写隔离、变更通知和冲突检测。
+
+关系：
+
+```text
+StateObject：这个状态对象是谁
+StateRecord：这个状态对象在某个 Snapshot 里的值是什么
+Snapshot：当前读写应该看哪一份 StateRecord
+```
+
+读取：
+
+```kotlin
+state.value
+```
+
+Snapshot 系统会：
+
+```text
+找到当前 Snapshot 下可见的 StateRecord
+从这个 StateRecord 里读出 value
+```
+
+写入：
+
+```kotlin
+state.value = 1
+```
+
+Snapshot 系统会：
+
+```text
+找到或创建当前 Snapshot 可写的 StateRecord
+把新值写到这份记录里
+等 Snapshot apply 时，再把变化发布出去
+```
+
+闭环：
+
+```text
+mutableStateOf
+-> 创建 Snapshot 可管理的 StateObject
+-> 具体值存在 StateRecord
+-> 读取时按当前 Snapshot 找可见记录
+-> 写入时写到当前 Snapshot 的记录
+-> apply 后变化才发布出去
+```
+
+一句话：
+
+```text
+Snapshot 的状态模型，就是用 StateObject 表示状态身份，用 StateRecord 表示状态在不同 Snapshot 下的值。
+```
