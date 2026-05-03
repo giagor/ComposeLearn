@@ -11,7 +11,7 @@
    - 结合 `LayoutNode` 看 Compose 如何承接测量、布局、绘制。
 3. 测量、布局与绘制原理
    - 先理解 `constraints -> measure -> place`。
-   - 再结合 `MeasurePolicy`、`MeasureScope`、`Placeable` 理解 measure / place。
+   - 再结合 `MeasurePolicy`、`MeasureScope`、`Measurable`、`Placeable` 理解 measure / place。
    - 结合 `Canvas`、`drawBehind`、`drawWithContent` 理解绘制入口。
 4. Modifier 与传统 View 的关系
    - 结合 `Modifier.Node` 理解 Modifier 如何参与不同阶段。
@@ -420,4 +420,196 @@ measure 决定大小，不决定最终位置。
 place 决定位置，不重新测量。
 ```
 
+## Layout 和 MeasurePolicy
 
+`Layout` 不是普通 View 类，而是 Compose 提供的基础布局 Composable 函数。
+
+它的核心作用：
+
+```text
+创建 / 更新 Compose UI 节点。
+组合 content 里的子内容。
+把 modifier 设置到节点上。
+把 measurePolicy 设置到节点上。
+```
+
+简化源码：
+
+```kotlin
+@Composable
+inline fun Layout(
+    content: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    measurePolicy: MeasurePolicy,
+) {
+    ReusableComposeNode<ComposeUiNode, Applier<Any>>(
+        factory = ComposeUiNode.Constructor,
+        update = {
+            set(measurePolicy, SetMeasurePolicy)
+            set(modifier, SetModifier)
+        },
+        content = content,
+    )
+}
+```
+
+几个概念的关系：
+
+```text
+Layout：写布局的入口。
+LayoutNode：Compose 内部 UI 节点。
+MeasurePolicy：挂到节点上的测量 / 布局规则。
+MeasureScope：执行测量逻辑时的作用域。
+Measurable：还没测量的子节点。
+Placeable：已经测量完成、还没摆放的子节点。
+```
+
+
+
+`MeasurePolicy` 可以理解成一个 `LayoutNode` 的测量和布局规则。
+
+它决定：
+
+```text
+子节点怎么测量。
+当前节点自己多大。
+子节点怎么摆放。
+```
+
+像 `Column`、`Row`、`Box` 都有自己的测量布局规则：
+
+```text
+Column：子节点竖着排。
+Row：子节点横着排。
+Box：子节点叠在一起。
+```
+
+
+
+`MeasureScope` 是执行测量逻辑时的作用域，可以理解成写测量布局逻辑时的工具箱。
+
+它提供的能力包括：
+
+```text
+dp 转 px。
+读取布局方向。
+调用 layout(width, height) { ... }。
+```
+
+
+
+`Measurable` 是还没测量的子节点，关键能力是：
+
+```kotlin
+measurable.measure(constraints)
+```
+
+
+
+`Placeable` 是已经测量完成的子节点，已经有尺寸：
+
+```kotlin
+placeable.width
+placeable.height
+```
+
+但它还没有最终位置，位置要在 `layout` block 里通过 `place` 决定：
+
+```kotlin
+layout(width, height) {
+    placeable.place(x, y)
+}
+```
+
+
+
+`MeasurePolicy` 的核心方法：
+
+```kotlin
+fun MeasureScope.measure(
+    measurables: List<Measurable>,
+    constraints: Constraints
+): MeasureResult
+```
+
+`Measurable` 测量后会得到 `Placeable`：
+
+```kotlin
+fun measure(constraints: Constraints): Placeable
+```
+
+也就是：
+
+```text
+Measurable --measure(constraints)--> Placeable
+```
+
+`layout(width, height)` 用来声明当前节点自己的大小，并进入子节点摆放阶段。
+
+### 结合 Column 源码理解
+
+`Column` 源码可以简化成：
+
+```kotlin
+@Composable
+inline fun Column(...) {
+    val measurePolicy = columnMeasurePolicy(...)
+
+    Layout(
+        content = { ColumnScopeInstance.content() },
+        measurePolicy = measurePolicy,
+        modifier = modifier,
+    )
+}
+```
+
+这说明：
+
+```text
+Column 是 Composable。
+Column 内部调用 Layout。
+Layout 创建 / 更新 Compose UI 节点。
+Column 把自己的 measurePolicy 交给 Layout。
+measurePolicy 决定子节点竖着排。
+```
+
+`Column` 的测量布局逻辑大体是：
+
+```text
+逐个测量子节点，得到 Placeable。
+主轴是高度，交叉轴是宽度。
+Column 宽度取子节点中较宽的值。
+Column 高度根据子节点高度累加。
+最后在 layout block 里按 y 方向依次 place。
+```
+
+因为 `Column` 是竖着排，所以：
+
+```text
+主轴 main axis = 高度。
+交叉轴 cross axis = 宽度。
+```
+
+源码里能看到类似关系：
+
+```kotlin
+// 测量 RowColumnMeasurePolicy.measure
+val placeable = child.measure(childConstraints)
+
+val placeableMainAxisSize = placeable.mainAxisSize()
+val placeableCrossAxisSize = placeable.crossAxisSize()
+
+// 布局 ColumnMeasurePolicy.placeHelper
+layout(crossAxisLayoutSize, mainAxisLayoutSize) {
+    placeables.forEachIndexed { i, placeable ->
+        placeable.place(crossAxisPosition, mainAxisPositions[i])
+    }
+}
+```
+
+一句话：
+
+```text
+Layout 负责创建节点并挂上 MeasurePolicy；
+MeasurePolicy 负责把 Measurable 测成 Placeable，再在 layout block 里 place 子节点。
+```
