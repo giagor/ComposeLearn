@@ -431,6 +431,25 @@ apply C
 
 
 
+完整链路：
+
+```
+state.value 被读取
+-> Snapshot / Composer 记录这个读取依赖
+
+state.value 被写入
+-> Snapshot 记录写入
+-> apply 后发布变化
+-> Recomposer 收到变化
+-> 对应 RecomposeScope invalid
+
+下一轮重组
+-> Recomposer 调度
+-> Composer 重新执行相关 Composable
+-> Composer 和 Slot Table 对齐旧结构
+-> remember 从 slot 里取回旧值
+```
+
 ## 最小例子
 
 ```kotlin
