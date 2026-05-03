@@ -8,12 +8,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 fun Greeting1(name: String) {
     Text("Hello $name")
 }
 
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun Greeting2() {
     var count by remember { mutableIntStateOf(0) }
