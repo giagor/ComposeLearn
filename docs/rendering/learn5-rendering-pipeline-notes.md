@@ -6,7 +6,8 @@
    - 理解组合 / 测量 / 布局 / 绘制分别做什么。
    - 理解状态变化可能影响不同阶段。
 2. Compose UI 树和 LayoutNode
-   - 理解 Composable 不等于 Android View。结合Compose后的Android View树长什么样
+   - 理解 Composable 不等于 Android View
+   - 结合 Compose 后的Android View树长什么样
    - 结合 `LayoutNode` 看 Compose 如何承接测量、布局、绘制。
 3. 测量、布局与绘制原理
    - 结合 `MeasurePolicy`、`MeasureScope`、`Placeable` 理解 measure / place。
@@ -188,7 +189,7 @@ LayoutNode 只对应真正参与布局 / 绘制的 UI 节点
 LayoutNode 是 Compose 自己的 UI 节点；Composable 用来声明 UI，LayoutNode 承接后续测量、布局、绘制。
 ```
 
-## Android View 树
+## Android View 树入口
 
 当前工程打印出来的 View 树：
 
@@ -287,3 +288,62 @@ AndroidComposeView：内部承载者，给 Compose UI 系统干活的
 ```
 
 最后一层 `AndroidComposeView -> android.view.View` 通常是 Compose 内部为了某些 Android 平台能力挂的辅助 View，不代表你的 Composable 子节点变成了传统 View。
+
+## LayoutNode 如何承接管线
+
+Android View 系统只会看到 `AndroidComposeView`，不会直接看到 `Column`、`Text`、`Button`。
+
+大体链路：
+
+```text
+Android View 系统
+  -> AndroidComposeView
+  -> root LayoutNode
+  -> 子 LayoutNode 树
+```
+
+也可以理解成：
+
+```text
+Android View 管线负责把 measure / layout / draw 的机会给 AndroidComposeView。
+Compose UI 管线负责让 LayoutNode 树完成真正的 UI 计算。
+```
+
+例如：
+
+```kotlin
+Column {
+    Text("Hello")
+    Button(onClick = {}) {
+        Text("OK")
+    }
+}
+```
+
+从 Android View 树看，主要还是：
+
+```text
+ComposeView
+  AndroidComposeView
+```
+
+从 Compose 内部看，可以粗略理解成：
+
+```text
+root LayoutNode
+  LayoutNode(Column)
+    LayoutNode(Text)
+    LayoutNode(Button)
+      LayoutNode(Text)
+```
+
+关键结论：
+
+```text
+Composable 声明 UI。
+组合阶段生成 / 更新 LayoutNode 树。
+LayoutNode 树承接后续测量、布局、绘制。
+AndroidComposeView 把这棵树挂回 Android View 系统。
+```
+
+## 
