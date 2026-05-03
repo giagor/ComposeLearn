@@ -613,3 +613,35 @@ layout(crossAxisLayoutSize, mainAxisLayoutSize) {
 Layout 负责创建节点并挂上 MeasurePolicy；
 MeasurePolicy 负责把 Measurable 测成 Placeable，再在 layout block 里 place 子节点。
 ```
+
+## 绘制阶段
+
+核心边界：
+
+```text
+布局阶段决定节点在哪里、多大。
+绘制阶段决定在这个区域里画什么。
+```
+
+例如：
+
+```kotlin
+Box(
+    Modifier
+        .size(100.dp)
+        .background(Color.Red)
+)
+```
+
+对应关系：
+
+```text
+size(100.dp)：影响测量，决定 Box 多大。
+background(Color.Red)：影响绘制，在已有区域里画红色。
+```
+
+常见绘制入口：
+
+- `Canvas`：作为 Composable 参与测量 / 布局，然后在 draw block 里画自定义图形。
+- `drawBehind`：在内容后面画，适合背景、底纹、装饰线。
+- `drawWithContent`：可以控制自定义绘制和原内容的顺序，`drawContent()` 表示继续绘制原内容。
